@@ -25,9 +25,9 @@ const features = [
   },
   {
     icon: UserRoundCheck,
-    title: "Session-aware UI",
+    title: "Role-aware accounts",
     description:
-      "The landing page, header, and dashboard all react to Clerk's signed-in and signed-out state.",
+      "Users choose whether they are a student or teacher during sign-up, and the app can tailor the dashboard afterward.",
   },
 ] as const;
 
@@ -83,8 +83,8 @@ export default function Home() {
             </h1>
             <p className="max-w-2xl text-lg leading-8 text-muted-foreground">
               Clerk is connected to the app router with dedicated sign-in and
-              sign-up pages, a protected dashboard route, and session-aware UI
-              across the app shell.
+              sign-up pages, a protected dashboard route, and role separation
+              for student and teacher accounts.
             </p>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row">

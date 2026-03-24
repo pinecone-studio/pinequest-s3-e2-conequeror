@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { ClerkProvider, Show, UserButton } from "@clerk/nextjs";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { clerkAppearance } from "@/lib/clerk-appearance";
 import "./globals.css";
 import "katex/dist/katex.min.css";
 
@@ -18,7 +19,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="h-full antialiased">
       <body className="min-h-full bg-background text-foreground">
-        <ClerkProvider appearance={{ cssLayerName: "clerk" }}>
+        <ClerkProvider appearance={clerkAppearance}>
           <div className="relative flex min-h-screen flex-col">
             <header className="sticky top-0 z-20 border-b border-border/70 bg-background/80 backdrop-blur">
               <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-4">

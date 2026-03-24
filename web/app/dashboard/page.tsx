@@ -2,6 +2,7 @@ import { currentUser } from "@clerk/nextjs/server";
 import { ArrowRight, Fingerprint, Mail, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { getRoleLabel, isUserRole } from "@/lib/auth-role";
 
 const checks = [
   {
@@ -30,6 +31,13 @@ export default async function DashboardPage() {
     "there";
   const email =
     user?.primaryEmailAddress?.emailAddress ?? "No primary email returned";
+  const rawRole = user?.unsafeMetadata?.role;
+  const role = isUserRole(rawRole) ? rawRole : "student";
+  const roleLabel = getRoleLabel(role);
+  const roleDescription =
+    role === "teacher"
+      ? "Your teacher account is ready for managing learners, creating assessments, and reviewing outcomes."
+      : "Your student account is ready for joining classes, taking exams, and following your progress.";
 
   return (
     <main className="relative flex flex-1 overflow-hidden">
@@ -37,14 +45,13 @@ export default async function DashboardPage() {
       <section className="mx-auto flex w-full max-w-6xl flex-col gap-10 px-6 py-14">
         <div className="space-y-4">
           <p className="text-sm font-medium tracking-[0.22em] text-muted-foreground uppercase">
-            Protected dashboard
+            {roleLabel} dashboard
           </p>
           <h1 className="text-4xl font-semibold tracking-tight text-balance sm:text-5xl">
             Welcome back, {displayName}.
           </h1>
           <p className="max-w-2xl text-lg leading-8 text-muted-foreground">
-            Your Clerk session is active, the route guard is working, and the
-            app router can read the current user on the server.
+            {roleDescription}
           </p>
         </div>
 
@@ -78,6 +85,9 @@ export default async function DashboardPage() {
             </p>
             <p className="mt-3 text-2xl font-semibold tracking-tight">
               {displayName}
+            </p>
+            <p className="mt-2 inline-flex w-fit rounded-full border border-background/20 px-3 py-1 text-xs font-medium tracking-[0.18em] text-background/80 uppercase">
+              {roleLabel}
             </p>
             <p className="mt-2 break-all text-sm leading-7 text-background/80">
               {email}

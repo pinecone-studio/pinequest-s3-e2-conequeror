@@ -1,0 +1,22 @@
+export const roleOptions = [
+  {
+    value: "student",
+    label: "Student",
+    description: "Join classes, take exams, and track your learning progress.",
+  },
+  {
+    value: "teacher",
+    label: "Teacher",
+    description: "Create assessments, review results, and manage learners.",
+  },
+] as const;
+
+export type UserRole = (typeof roleOptions)[number]["value"];
+
+export function isUserRole(value: unknown): value is UserRole {
+  return value === "student" || value === "teacher";
+}
+
+export function getRoleLabel(role: UserRole) {
+  return role === "teacher" ? "Teacher" : "Student";
+}
