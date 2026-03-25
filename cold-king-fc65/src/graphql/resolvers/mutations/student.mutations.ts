@@ -1,41 +1,35 @@
-import { prisma } from "../../../lib/prisma";
-import type { GraphQLContext } from "../../../server";
+import { getDb } from '../../../db/client';
+import { students } from '../../../db/schemas/student.schema';
 
 export const studentMutation = {
-    Mutation: {
-        upsertStudent: async (
-            _: unknown,
-            args: {
-                input: {
-                    fullName: string;
-                    email: string;
-                    phone: string;
-                };
-            },
-            context: GraphQLContext,
-        ) => {
-            const userId = context.auth.userId;
+	Mutation: {
+		upsertStudent: async (
+			_: unknown,
+			args: {
+				input: {
+					fullName: string;
+					email: string;
+					phone: string;
+				};
+			},
+			context: { env: Env }
+		) => {
+			const db = getDb(context.env.DB);
 
-            if (!userId) {
-                throw new Error("Unauthorized");
-            }
+			//add logic to grab clrk ID here.
 
-            return prisma.student.upsert({
-                where: {
-                    id: userId,
-                },
-                update: {
-                    fullName: args.input.fullName,
-                    email: args.input.email,
-                    phone: args.input.phone,
-                },
-                create: {
-                    id: userId,
-                    fullName: args.input.fullName,
-                    email: args.input.email,
-                    phone: args.input.phone,
-                },
-            });
-        },
-    },
+			const inserted = await db
+				.insert(students)
+				.values({
+					id: crypto.randomUUID(),
+					fullName: args.input.fullName,
+					email: args.input.email,
+					phone: args.input.phone,
+				})
+				.returning()
+				.get();
+
+			return inserted
+		},
+	},
 };
