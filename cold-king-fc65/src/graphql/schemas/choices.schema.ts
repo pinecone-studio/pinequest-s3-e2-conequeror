@@ -21,4 +21,5 @@ export const choiceTypeDefs = gql`
         label: String!
         isCorrect: Boolean!
     }
+
 `
