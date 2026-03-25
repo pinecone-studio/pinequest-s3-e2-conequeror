@@ -18,6 +18,13 @@ export default function TeacherExamCreatePage() {
         <div>
             <div>
                 create exam here
+
+                <div className="w-full h-400 border-4 rounded-2xl flex flex-col">
+                    <div>
+                        <label></label>
+                        <input />
+                    </div>
+                </div>
             </div>
         </div>
     )
