@@ -4,14 +4,15 @@ import { useAuth } from "@clerk/nextjs";
 import { useEffect, useRef, useState } from "react";
 import {
   getCloudflareGraphqlUrl,
-  syncStudentToCloudflare,
+  syncRoleProfileToCloudflare,
 } from "@/lib/cloudflare-sync";
+import type { UserRole } from "@/lib/auth-role";
 
 type CloudflareStudentSyncProps = {
   email: string;
   fullName: string;
   phone: string;
-  role: "student" | "teacher";
+  role: UserRole;
 };
 
 export function CloudflareStudentSync({
@@ -25,7 +26,7 @@ export function CloudflareStudentSync({
   const hasAttemptedRef = useRef(false);
 
   useEffect(() => {
-    if (hasAttemptedRef.current || !isLoaded || !isSignedIn || role !== "student") {
+    if (hasAttemptedRef.current || !isLoaded || !isSignedIn) {
       return;
     }
 
@@ -51,9 +52,10 @@ export function CloudflareStudentSync({
           throw new Error("Missing Clerk session token.");
         }
 
-        await syncStudentToCloudflare({
+        await syncRoleProfileToCloudflare({
           token,
           apiUrl,
+          role,
           input: {
             email,
             fullName,
@@ -61,7 +63,7 @@ export function CloudflareStudentSync({
           },
         });
 
-        setStatus("Cloudflare student profile synced.");
+        setStatus(`Cloudflare ${role} profile synced.`);
       } catch (error) {
         const message =
           error instanceof Error ? error.message : "Cloudflare sync failed.";
@@ -70,7 +72,7 @@ export function CloudflareStudentSync({
     })();
   }, [email, fullName, getToken, isLoaded, isSignedIn, phone, role]);
 
-  if (!status || role !== "student") {
+  if (!status) {
     return null;
   }
 
