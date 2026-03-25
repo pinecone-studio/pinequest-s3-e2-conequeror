@@ -4,6 +4,8 @@ type SyncStudentInput = {
   phone: string;
 };
 
+type SyncRole = "student" | "teacher";
+
 type GraphQLError = {
   message?: string;
 };
@@ -14,12 +16,24 @@ type SyncResponse = {
     upsertStudent?: {
       id: string;
     } | null;
+    upsertTeacher?: {
+      id: string;
+    } | null;
   };
 };
 
-const syncStudentMutation = `
-  mutation SyncStudent($input: upsertStudentInput!) {
-    upsertStudent(input: $input) {
+const syncRoleMutation = `
+  mutation SyncRoleProfile(
+    $studentInput: upsertStudentInput!
+    $teacherInput: upsertTeacherInput!
+    $isStudent: Boolean!
+    $isTeacher: Boolean!
+  ) {
+    upsertStudent(input: $studentInput) @include(if: $isStudent) {
+      id
+    }
+
+    upsertTeacher(input: $teacherInput) @include(if: $isTeacher) {
       id
     }
   }
@@ -39,13 +53,15 @@ export function getCloudflareGraphqlUrl() {
   return null;
 }
 
-export async function syncStudentToCloudflare({
+export async function syncRoleProfileToCloudflare({
   token,
   apiUrl,
+  role,
   input,
 }: {
   token: string;
   apiUrl: string;
+  role: SyncRole;
   input: SyncStudentInput;
 }) {
   const response = await fetch(apiUrl, {
@@ -55,9 +71,12 @@ export async function syncStudentToCloudflare({
       Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify({
-      query: syncStudentMutation,
+      query: syncRoleMutation,
       variables: {
-        input,
+        studentInput: input,
+        teacherInput: input,
+        isStudent: role === "student",
+        isTeacher: role === "teacher",
       },
     }),
   });
@@ -73,7 +92,12 @@ export async function syncStudentToCloudflare({
     throw new Error(errorMessage);
   }
 
-  if (!payload.data?.upsertStudent?.id) {
-    throw new Error("Cloudflare sync did not return a student record.");
+  const recordId =
+    role === "teacher"
+      ? payload.data?.upsertTeacher?.id
+      : payload.data?.upsertStudent?.id;
+
+  if (!recordId) {
+    throw new Error("Cloudflare sync did not return a profile record.");
   }
 }
