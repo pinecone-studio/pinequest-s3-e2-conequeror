@@ -1,7 +1,7 @@
 "use client";
 
 import { useAuth, useUser } from "@clerk/nextjs";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useMutation, useQuery } from "@apollo/client/react";
 import { gql } from "@apollo/client";
@@ -11,7 +11,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { skip } from "node:test";
 
 
 type ClassroomItem = {
@@ -63,18 +62,19 @@ export function TeacherSchoolRequests() {
   const [classrooms, setClassrooms] = useState<ClassroomItem[]>([]);
   const [statusMessage, setStatusMessage] = useState("");
   const [creatingClassroom, setCreatingClassroom] = useState(false);
-  const [selectedSchoolId, setSelectedSchoolId] = useState("");
   const [className, setClassName] = useState("");
-
-  const { user } = useUser()
-  const userId = user?.id
-
 
   const [showClassCode, setShowClassCode] = useState(false)
 
-  const [createClassRoom, { data: createClassroomData, loading: createClassroomLoading, error: createClassroomError }] = useMutation<createClassroomData>(createClassroomMutation)
+  const [createClassRoom, { data: createClassroomData, 
+    // loading: createClassroomLoading,
+    //  error: createClassroomError 
+    }] = useMutation<createClassroomData>(createClassroomMutation)
 
-  const { data: myClassroomData, loading: myClassroomLoading, error: myClassroomError } = useQuery<myClassroomData>(getMyClassrooms)
+  const { data: myClassroomData, 
+    // loading: myClassroomLoading, 
+    error: myClassroomError
+  } = useQuery<myClassroomData>(getMyClassrooms)
 
   useEffect(() => {
     console.log(myClassroomData)
@@ -99,7 +99,6 @@ export function TeacherSchoolRequests() {
 
     void (async () => {
       try {
-        setStatusMessage("Loading schools...");
         await loadClassroomData();
         setStatusMessage("");
       } catch (error) {
@@ -165,8 +164,7 @@ export function TeacherSchoolRequests() {
         <p className="mt-2 text-sm text-[#6B7280]">
           Зөвшөөрөгдсөн сургууль дээрээ анги нээгээд class code-оо сурагчдад өгнө.
         </p>
-
-
+        {statusMessage}
         <div className="mt-4 grid gap-3 md:grid-cols-[220px_1fr_auto]">
           <input
             className="h-11 rounded-xl border border-[#E7E8F0] bg-white px-3 text-sm"
