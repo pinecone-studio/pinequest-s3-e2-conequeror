@@ -19,7 +19,7 @@ type AuthScreenProps = {
   mode: "sign-in" | "sign-up";
 };
 
-type SignUpRole = Extract<UserRole, "student" | "teacher">;
+type SignUpRole = UserRole;
 
 type FormValues = {
   role: SignUpRole;
@@ -27,6 +27,8 @@ type FormValues = {
   lastName: string;
   firstName: string;
   phone: string;
+  schoolName: string;
+  aimag: string;
   classCode: string;
   password: string;
   confirmPassword: string;
@@ -38,10 +40,37 @@ const initialFormValues: FormValues = {
   lastName: "",
   firstName: "",
   phone: "",
+  schoolName: "",
+  aimag: "",
   classCode: "",
   password: "",
   confirmPassword: "",
 };
+
+const aimagOptions = [
+  "Архангай",
+  "Баян-Өлгий",
+  "Баянхонгор",
+  "Булган",
+  "Говь-Алтай",
+  "Говьсүмбэр",
+  "Дархан-Уул",
+  "Дорноговь",
+  "Дорнод",
+  "Дундговь",
+  "Завхан",
+  "Орхон",
+  "Өвөрхангай",
+  "Өмнөговь",
+  "Сүхбаатар",
+  "Сэлэнгэ",
+  "Төв",
+  "Увс",
+  "Ховд",
+  "Хөвсгөл",
+  "Хэнтий",
+  "Улаанбаатар",
+] as const;
 
 const inputClassName =
   "h-12 w-full rounded-[14px] border border-[#EAE6F5] bg-white px-4 text-[15px] text-[#1F1B2D] shadow-none outline-none transition-colors placeholder:text-[#B7B0C8] focus:border-[#A592FF] focus:ring-4 focus:ring-[#A592FF]/10";
@@ -158,6 +187,7 @@ function SelectField({
         value={value}
         onChange={onChange}
       >
+        <option value="school">School</option>
         <option value="student">Student</option>
         <option value="teacher">Teacher</option>
       </select>
@@ -362,6 +392,21 @@ export function AuthScreen({ mode }: AuthScreenProps) {
       ...previous,
       role,
       classCode: role === "student" ? previous.classCode : "",
+      schoolName: role === "school" ? previous.schoolName : "",
+      aimag: role === "school" ? previous.aimag : "",
+    }));
+
+    if (feedback) {
+      setFeedback(null);
+    }
+  };
+
+  const handleAimagChange = (event: ChangeEvent<HTMLSelectElement>) => {
+    const { value } = event.target;
+
+    setFormValues((previous) => ({
+      ...previous,
+      aimag: value,
     }));
 
     if (feedback) {
@@ -392,16 +437,18 @@ export function AuthScreen({ mode }: AuthScreenProps) {
     if (!formValues.firstName || !formValues.lastName) {
       setFeedback({
         tone: "error",
-        message: "no name!"
-      })
+        message: "Овог, нэрээ оруулна уу.",
+      });
+      return;
     }
 
     const firstName = formValues.firstName.trim();
     const lastName = formValues.lastName.trim();
     const normalizedPhone = formValues.phone.trim();
+    const normalizedSchoolName = formValues.schoolName.trim();
+    const normalizedAimag = formValues.aimag.trim();
 
-
-    if (!normalizedPhone) {
+    if (formValues.role !== "school" && !normalizedPhone) {
       setFeedback({
         tone: "error",
         message: "Утасны дугаараа оруулна уу.",
@@ -415,6 +462,23 @@ export function AuthScreen({ mode }: AuthScreenProps) {
         message: "Ангийн кодоо оруулна уу.",
       });
       return;
+    }
+
+    if (formValues.role === "school") {
+      if (!normalizedSchoolName) {
+        setFeedback({
+          tone: "error",
+          message: "Сургуулийн нэрээ оруулна уу.",
+        });
+        return;
+      }
+      if (!normalizedAimag) {
+        setFeedback({
+          tone: "error",
+          message: "Аймаг/хотоо сонгоно уу.",
+        });
+        return;
+      }
     }
 
     const unsafeMetadata =
@@ -433,11 +497,21 @@ export function AuthScreen({ mode }: AuthScreenProps) {
           lastName,
           phone: normalizedPhone,
         };
+    const schoolUnsafeMetadata = {
+      role: "school" as const,
+      firstName,
+      lastName,
+      schoolName: normalizedSchoolName,
+      aimag: normalizedAimag,
+    };
+
+    const resolvedUnsafeMetadata =
+      formValues.role === "school" ? schoolUnsafeMetadata : unsafeMetadata;
 
     const { error } = await signUp.password({
       emailAddress: formValues.email.trim(),
       password: formValues.password,
-      unsafeMetadata,
+      unsafeMetadata: resolvedUnsafeMetadata,
     });
 
     if (error) {
@@ -554,6 +628,7 @@ export function AuthScreen({ mode }: AuthScreenProps) {
   const isSigningIn = signInFetchStatus === "fetching";
   const isSignUpMode = mode === "sign-up";
   const isTeacherRole = formValues.role === "teacher";
+  const isSchoolRole = formValues.role === "school";
 
   if (isSignedIn) {
     return null;
@@ -678,20 +753,51 @@ export function AuthScreen({ mode }: AuthScreenProps) {
                 onChange={handleInputChange}
               />
 
-              <FormField
-                id="phone"
-                label="Утасны дугаар"
-                autoComplete="tel"
-                placeholder="99112233"
-                value={formValues.phone}
-                onChange={handleInputChange}
-              />
+              {!isSchoolRole ? (
+                <FormField
+                  id="phone"
+                  label="Утасны дугаар"
+                  autoComplete="tel"
+                  placeholder="99112233"
+                  value={formValues.phone}
+                  onChange={handleInputChange}
+                />
+              ) : null}
 
-              {isTeacherRole ? (
+              {isSchoolRole ? (
                 <>
-
+                  <FormField
+                    id="schoolName"
+                    label="Сургуулийн нэр"
+                    autoComplete="organization"
+                    placeholder="School name"
+                    value={formValues.schoolName}
+                    onChange={handleInputChange}
+                  />
+                  <div className="space-y-2.5">
+                    <label
+                      htmlFor="aimag"
+                      className="block text-[15px] font-semibold tracking-tight text-[#292235]"
+                    >
+                      Аймаг / Хот
+                    </label>
+                    <select
+                      id="aimag"
+                      name="aimag"
+                      className={inputClassName}
+                      value={formValues.aimag}
+                      onChange={handleAimagChange}
+                    >
+                      <option value="">Аймаг/хотоо сонгох</option>
+                      {aimagOptions.map((aimag) => (
+                        <option key={aimag} value={aimag}>
+                          {aimag}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </>
-              ) : (
+              ) : isTeacherRole ? null : (
                 <FormField
                   id="classCode"
                   label="Ангийн код"

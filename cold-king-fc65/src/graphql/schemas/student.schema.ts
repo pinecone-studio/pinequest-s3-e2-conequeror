@@ -12,6 +12,8 @@ export const studentTypeDefs = gql`
         inviteCode: String!
         classroomId: String!
         teacherId: String!
+        schoolId: String
+        schoolName: String
         exams: [Exam]!
     }
 

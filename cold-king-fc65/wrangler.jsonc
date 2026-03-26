@@ -18,6 +18,7 @@
 			"binding": "shalgalt_db",
 			"database_name": "shalgalt-db",
 			"database_id": "cb322da6-3e04-469e-97d8-6f4eb8069f3c",
+			"migrations_dir": "drizzle/migrations",
 			"remote": true
 		}
 	]

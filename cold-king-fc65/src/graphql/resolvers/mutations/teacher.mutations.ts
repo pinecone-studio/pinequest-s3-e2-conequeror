@@ -20,6 +20,10 @@ export const teacherMutation = {
 				throw new Error("Unauthorized");
 			}
 
+			if (context.auth.role !== "teacher") {
+				throw new Error("Only teacher accounts can upsert teacher profiles.");
+			}
+
 			const userId = context.auth.userId;
 			const values = {
 				firstName: args.input.firstName,

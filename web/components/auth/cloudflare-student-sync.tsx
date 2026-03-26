@@ -59,6 +59,14 @@ export function CloudflareStudentSync({
           throw new Error("Missing Clerk session token.");
         }
 
+        if (role === "school") {
+          hasSyncedRef.current = true;
+          if (!cancelled) {
+            setStatus("");
+          }
+          return;
+        }
+
         if (role === "student") {
           if (!email || !firstName || !lastName) {
             throw new Error("Student sync needs name and email.");
@@ -80,7 +88,7 @@ export function CloudflareStudentSync({
               inviteCode,
             },
           });
-        } else {
+        } else if (role === "teacher") {
           if (!email || !firstName || !lastName) {
             throw new Error("Teacher sync needs name, email.");
           }
@@ -98,6 +106,8 @@ export function CloudflareStudentSync({
               phone,
             },
           });
+        } else {
+          return;
         }
 
         hasSyncedRef.current = true;

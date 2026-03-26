@@ -15,8 +15,15 @@ export type GraphQLContext = {
 	auth: {
 		userId: string | null;
 		isAuthenticated: boolean;
+		role: "school" | "teacher" | "student" | null;
 	};
 };
+
+function parseUserRole(value: unknown): GraphQLContext["auth"]["role"] {
+	return value === "school" || value === "teacher" || value === "student"
+		? value
+		: null;
+}
 
 export async function getRequestAuth(
 	request: Request,
@@ -28,6 +35,7 @@ export async function getRequestAuth(
 		return {
 			userId: null,
 			isAuthenticated: false,
+			role: null,
 		};
 	}
 
@@ -51,10 +59,22 @@ export async function getRequestAuth(
 	});
 
 	const auth = requestState.toAuth();
+	const userId = auth && "userId" in auth ? auth.userId : null;
+	let role: GraphQLContext["auth"]["role"] = null;
+
+	if (userId) {
+		try {
+			const user = await clerk.users.getUser(userId);
+			role = parseUserRole(user.unsafeMetadata?.role);
+		} catch {
+			role = null;
+		}
+	}
 
 	return {
-		userId: auth && "userId" in auth ? auth.userId : null,
+		userId,
 		isAuthenticated: auth?.isAuthenticated ?? false,
+		role,
 	};
 }
 

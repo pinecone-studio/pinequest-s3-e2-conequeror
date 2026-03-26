@@ -8,6 +8,8 @@ export const classroomTypeDefs = gql`
     type Classroom {
         id: ID!
         teacherId: String!
+        schoolId: String
+        schoolName: String
         className: String!
         classCode: String!
         createdAt: DateTime!
@@ -19,6 +21,7 @@ export const classroomTypeDefs = gql`
 
     input createClassroomInput{
         className: String!
+        schoolId: String
     }
 
     type Mutation{

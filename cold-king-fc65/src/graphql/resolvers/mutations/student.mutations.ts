@@ -27,6 +27,10 @@ export const studentMutation = {
 				throw new Error("Unauthorized");
 			}
 
+			if (context.auth.role !== "student") {
+				throw new Error("Only student accounts can upsert student profiles.");
+			}
+
 			const userId = context.auth.userId;
 			const normalizedCode = args.input.inviteCode.trim().toUpperCase();
 			const classroom = await context.db
@@ -49,15 +53,26 @@ export const studentMutation = {
 				inviteCode: classroom.classCode,
 				classroomId: classroom.id,
 				teacherId: classroom.teacherId,
+				schoolId: classroom.schoolId,
+				schoolName: classroom.schoolName,
 			};
 
 			const existing = await context.db
-				.select({ id: students.id })
+				.select({
+					id: students.id,
+					classroomId: students.classroomId,
+				})
 				.from(students)
 				.where(eq(students.id, userId))
 				.get();
 
 			if (existing) {
+				if (existing.classroomId !== classroom.id) {
+					throw new Error(
+						"You are already registered to another classroom and cannot switch with a new code.",
+					);
+				}
+
 				return context.db
 					.update(students)
 					.set(values)

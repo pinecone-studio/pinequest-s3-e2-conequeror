@@ -22,6 +22,10 @@ export const examMutation = {
                 throw new Error("Unauthorized");
             }
 
+            if (context.auth.role !== "teacher") {
+                throw new Error("Only teacher accounts can create exams.");
+            }
+
             return context.db
                 .insert(exams)
                 .values({

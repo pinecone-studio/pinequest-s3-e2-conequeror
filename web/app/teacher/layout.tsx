@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { CloudflareStudentSync } from "@/components/auth/cloudflare-student-sync";
+import { getRoleHomePath, isUserRole } from "@/lib/auth-role";
 import { TeacherHeader } from "./_component/TeacherHeader";
 
 export default async function TeacherLayout({
@@ -15,14 +16,14 @@ export default async function TeacherLayout({
     redirect("/sign-in");
   }
 
-  // const role = user.unsafeMetadata?.role;
-  // if (!isUserRole(role)) {
-  //   redirect("/dashboard");
-  // }
+  const role = user.unsafeMetadata?.role;
+  if (!isUserRole(role)) {
+    redirect("/dashboard");
+  }
 
-  // if (role !== "teacher") {
-  //   redirect(getRoleHomePath(role));
-  // }
+  if (role !== "teacher") {
+    redirect(getRoleHomePath(role));
+  }
 
   const email = user.primaryEmailAddress?.emailAddress ?? "";
   const rawFirstName = user.unsafeMetadata?.firstName;

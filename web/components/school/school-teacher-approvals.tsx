@@ -39,6 +39,16 @@ const approveTeacherRequestMutation = `
   }
 `;
 
+const rejectTeacherRequestMutation = `
+  mutation RejectTeacherRequest($input: rejectTeacherRequestInput!) {
+    rejectTeacherRequest(input: $input) {
+      id
+      status
+      rejectedAt
+    }
+  }
+`;
+
 function formatDate(timestamp: number) {
   if (!timestamp) {
     return "-";
@@ -52,6 +62,7 @@ export function SchoolTeacherApprovals() {
   const [requests, setRequests] = useState<TeacherRequestItem[]>([]);
   const [statusMessage, setStatusMessage] = useState("");
   const [approvingId, setApprovingId] = useState<string | null>(null);
+  const [rejectingId, setRejectingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isLoaded || !isSignedIn) {
@@ -102,12 +113,42 @@ export function SchoolTeacherApprovals() {
       });
 
       setRequests((current) => current.filter((item) => item.id !== requestId));
+      setStatusMessage("Teacher хүсэлт approve хийгдлээ.");
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Failed to approve request.";
       setStatusMessage(message);
     } finally {
       setApprovingId(null);
+    }
+  };
+
+  const handleReject = async (requestId: string) => {
+    try {
+      setRejectingId(requestId);
+      const token = await getToken();
+      if (!token) {
+        throw new Error("Missing Clerk session token.");
+      }
+
+      await cloudflareGraphqlRequest({
+        token,
+        query: rejectTeacherRequestMutation,
+        variables: {
+          input: {
+            requestId,
+          },
+        },
+      });
+
+      setRequests((current) => current.filter((item) => item.id !== requestId));
+      setStatusMessage("Teacher хүсэлт reject хийгдлээ.");
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to reject request.";
+      setStatusMessage(message);
+    } finally {
+      setRejectingId(null);
     }
   };
 
@@ -151,14 +192,23 @@ export function SchoolTeacherApprovals() {
                 Requested at: {formatDate(request.createdAt)}
               </p>
 
-              <Button
-                size="sm"
-                className="mt-3"
-                onClick={() => handleApprove(request.id)}
-                disabled={approvingId === request.id}
-              >
-                {approvingId === request.id ? "Approving..." : "Approve teacher"}
-              </Button>
+              <div className="mt-3 flex items-center gap-2">
+                <Button
+                  size="sm"
+                  onClick={() => handleApprove(request.id)}
+                  disabled={approvingId === request.id || rejectingId === request.id}
+                >
+                  {approvingId === request.id ? "Approving..." : "Approve"}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleReject(request.id)}
+                  disabled={rejectingId === request.id || approvingId === request.id}
+                >
+                  {rejectingId === request.id ? "Rejecting..." : "Reject"}
+                </Button>
+              </div>
             </article>
           ))}
         </div>

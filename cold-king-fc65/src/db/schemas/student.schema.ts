@@ -11,4 +11,6 @@ export const students = sqliteTable("students", {
 	inviteCode: text().notNull(),
 	classroomId: text().notNull(),
 	teacherId: text().notNull(),
+	schoolId: text(),
+	schoolName: text(),
 });
