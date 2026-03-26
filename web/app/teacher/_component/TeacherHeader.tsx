@@ -1,10 +1,10 @@
 "use client";
 
+import { useClerk, useUser } from "@clerk/nextjs";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LayoutGrid, FileText, Users } from "lucide-react";
-import { UserButton } from "@clerk/nextjs";
 
 const navItems = [
   {
@@ -22,10 +22,38 @@ const navItems = [
     href: "/teacher",
     icon: Users,
   },
-];
+] as const;
+
+function isNavItemActive(
+  pathname: string,
+  href: (typeof navItems)[number]["href"],
+) {
+  if (href === "/teacher") {
+    return pathname === href;
+  }
+
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
 
 export function TeacherHeader() {
   const pathname = usePathname();
+  const { openUserProfile } = useClerk();
+  const { user } = useUser();
+  const rawFullName = user?.unsafeMetadata?.fullName;
+  const displayName =
+    typeof rawFullName === "string" && rawFullName.trim()
+      ? rawFullName
+      : [user?.lastName, user?.firstName].filter(Boolean).join(" ") ||
+        user?.fullName ||
+        user?.firstName ||
+        user?.username ||
+        "Багш";
+  const initials = displayName
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part.charAt(0).toUpperCase())
+    .join("");
 
   return (
     <header className="w-full border-b border-[#E7E8F0] bg-white">
@@ -49,7 +77,7 @@ export function TeacherHeader() {
         <nav className="flex items-center gap-8 lg:gap-10">
           {navItems.map((item) => {
             const Icon = item.icon;
-            const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
+            const isActive = isNavItemActive(pathname, item.href);
 
             return (
               <Link
@@ -68,31 +96,25 @@ export function TeacherHeader() {
           })}
         </nav>
 
-        <div className="flex items-center gap-3 border-l border-[#E7E8F0] pl-5">
-          <div className="h-11 w-11 overflow-hidden rounded-full bg-[#F4D9C6]">
-            <Image
-              src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200&q=80"
-              alt="Teacher avatar"
-              width={44}
-              height={44}
-              className="h-full w-full object-cover"
-            />
+        <button
+          type="button"
+          onClick={() => openUserProfile()}
+          aria-label="Open profile"
+          className="flex items-center gap-3 border-l border-[#E7E8F0] pl-5 text-left transition hover:opacity-90"
+        >
+          <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-full border border-[#E7E8F0] bg-gradient-to-br from-[#F4A261] to-[#E76F51] text-[14px] font-bold text-white">
+            {initials || "Б"}
           </div>
 
           <div className="leading-tight">
             <p className="text-[13px] font-medium text-[#9A98A3]">
               Өдрийн мэнд
             </p>
-            <p className="text-[15px] font-semibold text-[#111111]">C.Анужин</p>
+            <p className="text-[15px] font-semibold text-[#111111]">
+              {displayName}
+            </p>
           </div>
-          <UserButton
-            appearance={{
-              elements: {
-                userButtonAvatarBox: "h-11 w-11",
-              },
-            }}
-          />
-        </div>
+        </button>
       </div>
     </header>
   );
