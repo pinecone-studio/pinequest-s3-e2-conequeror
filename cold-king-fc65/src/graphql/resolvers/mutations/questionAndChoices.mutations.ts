@@ -17,6 +17,7 @@ type CreateQuestionInput = {
     videoUrl?: string,
     topic?: string,
     examId: string,
+    indexOnExam: number,
     difficulty?: string,
     choices?: Choice[]
 }
@@ -35,6 +36,7 @@ export const questionMutation = {
                 videoUrl: args.input.videoUrl || null,
                 topic: args.input.topic || null,
                 examId: args.input.examId,
+                indexOnExam: args.input.indexOnExam,
                 difficulty: args.input.difficulty || null,
                 createdAt: new Date()
             });

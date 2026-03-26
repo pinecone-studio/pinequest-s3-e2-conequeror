@@ -2,29 +2,27 @@
 
 import { gql } from "@apollo/client";
 import { useMutation } from "@apollo/client/react";
-import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 
-//
-//
-//
-// 80a38bea-7a0f-4b9c-8d2c-fd603726abd7
-// 
-//  examId, tur end bailgachii
-//
-//
-//
+interface ExamData {
+    createExam: {
+        id: string
+        title: string
+    }
+}
 
 const CREATE_EXAM = gql`
     mutation CreateExam($input: createExamInput!){
         createExam(input: $input){
+            id
             title
         }
     }
 `
 
-
-
 export default function TeacherExamCreatePage() {
+    const router = useRouter()
 
     const [title, setTitle] = useState("")
     const [subject, setSubject] = useState("")
@@ -35,11 +33,11 @@ export default function TeacherExamCreatePage() {
     const [duration, setDuration] = useState(0)
     const [grade, setGrade] = useState("")
 
-    const [createExam, { data, error }] = useMutation(CREATE_EXAM)
+    const [createExam, { error, loading }] = useMutation<ExamData>(CREATE_EXAM)
 
     const handleCreateExam = async () => {
 
-        await createExam({
+        const res = await createExam({
             variables: {
                 input: {
                     title,
@@ -51,8 +49,11 @@ export default function TeacherExamCreatePage() {
             }
         })
 
-        console.log(data)
+        const examId = res.data?.createExam.id
+
         console.log(error)
+
+        router.push(`/teacher/exams/${examId}/edit`)
 
     }
 
