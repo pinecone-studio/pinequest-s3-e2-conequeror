@@ -14,6 +14,7 @@ export const examTypeDefs = gql`
 
     type Query {
         exams: [Exam]!
+        examById(examId: String!): Exam!
     }
 
     input createExamInput {

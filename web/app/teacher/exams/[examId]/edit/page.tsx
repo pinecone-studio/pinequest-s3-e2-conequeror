@@ -1,43 +1,57 @@
 "use client";
 
 import { ChevronDown, Pencil, Plus, Trash2 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { gql } from "@apollo/client";
+import { useQuery } from "@apollo/client/react";
+import { useParams } from "next/navigation";
 
 type QuestionType = "Зураггүй" | "Зурагтай";
 type AnswerType = "Сонголттой" | "Нээлттэй";
 
-type OptionItem = {
+type Choice = {
     id: string;
-    value: string;
+    questionId: string;
+    label: string;
+    text: string;
+    isCorrect: boolean
 };
-
-
-
-//
-//
-//
-// 80a38bea-7a0f-4b9c-8d2c-fd603726abd7
-// 
-//  examId, tur end bailgachii
-//
-//
-//
-
-
-
 type QuestionItem = {
-    id: string;
     question: string;
     questionType: QuestionType;
-    answerType: AnswerType;
+    type: AnswerType;
+    imageUrl?: string
+    videoUrl?: string
     score: number;
-    options: OptionItem[];
-    correctOptionId: string | null;
+    choices: Choice[];
 };
 
-const gradeOptions = Array.from({ length: 12 }, (_, index) => `${index + 1}-р анги`);
+interface ExamData {
+    examById: {
+        title: string
+        id: string
+        subject: string
+        description: string
+        createdBy: string
+        duration: number
+        grade: string
+    }
+}
 
+const GET_EXAMBYID = gql`
+    query ExamById($examId: String!){
+        examById(examId: $examId){
+            title
+            id
+            subject
+            description
+            createdBy
+            duration
+            grade
+        }
+    }
+`
 const baseFieldClassName =
     "h-[62px] w-full rounded-[20px] border border-[#E6DEF6] bg-white px-5 text-[18px] text-[#1C1825] shadow-[inset_0_1px_2px_rgba(255,255,255,0.7)] outline-none transition focus:border-[#B59AF8] focus:ring-4 focus:ring-[#B59AF8]/15";
 
@@ -64,14 +78,22 @@ function createQuestion(order: number): QuestionItem {
 }
 
 export default function TeacherExamCreatePage() {
-    const [subject, setSubject] = useState("Нийгэм");
-    const [topic, setTopic] = useState("Соёл");
-    const [grade, setGrade] = useState("10-р анги");
-    const [duration, setDuration] = useState(30);
     const [totalScore, setTotalScore] = useState(30);
     const [questions, setQuestions] = useState<QuestionItem[]>([createQuestion(1)]);
     const [activeQuestionId, setActiveQuestionId] = useState<string | null>(null);
 
+    const params = useParams()
+    const examId = params.examId
+
+    const { data: examData, loading, error } = useQuery<ExamData>(GET_EXAMBYID, {
+        variables: {
+            examId
+        }
+    })
+
+    useEffect(() => {
+        console.log(examData)
+    }, [examData])
 
     const activeQuestion = useMemo(() => {
         const fallbackQuestion = questions[0] ?? null;
@@ -147,49 +169,42 @@ export default function TeacherExamCreatePage() {
                         <div className="space-y-5">
                             <div className="grid grid-cols-[120px_minmax(0,1fr)] items-center gap-3 text-[18px]">
                                 <span className="font-semibold text-[#17131F]">Хичээл</span>
-                                <input
-                                    value={subject}
-                                    onChange={(event) => setSubject(event.target.value)}
+                                <p
                                     className="min-w-0 border-0 bg-transparent p-0 text-right text-[18px] text-[#2A2434] outline-none"
-                                />
+                                >
+
+                                    {examData?.examById.subject}
+                                </p>
                             </div>
 
                             <div className="grid grid-cols-[120px_minmax(0,1fr)] items-center gap-3 text-[18px]">
                                 <span className="font-semibold text-[#17131F]">Сэдэв</span>
-                                <input
-                                    value={topic}
-                                    onChange={(event) => setTopic(event.target.value)}
+                                <p
                                     className="min-w-0 border-0 bg-transparent p-0 text-right text-[18px] text-[#2A2434] outline-none"
-                                />
+                                >
+                                    {examData?.examById.title}
+                                </p>
                             </div>
 
                             <div className="grid grid-cols-[120px_minmax(0,1fr)] items-center gap-3 text-[18px]">
                                 <span className="font-semibold text-[#17131F]">Анги</span>
                                 <div className="relative">
-                                    <select
-                                        value={grade}
-                                        onChange={(event) => setGrade(event.target.value)}
-                                        className="w-full appearance-none border-0 bg-transparent pr-8 text-right text-[18px] text-[#2A2434] outline-none"
+                                    <p
+                                        className="min-w-0 border-0 bg-transparent p-0 text-right text-[18px] text-[#2A2434] outline-none"
                                     >
-                                        {gradeOptions.map((item) => (
-                                            <option key={item} value={item}>
-                                                {item}
-                                            </option>
-                                        ))}
-                                    </select>
-                                    <ChevronDown className="pointer-events-none absolute right-0 top-1/2 size-5 -translate-y-1/2 text-[#7F778C]" />
+                                        {examData?.examById.grade}
+
+                                    </p>
                                 </div>
                             </div>
 
                             <div className="grid grid-cols-[120px_minmax(0,1fr)] items-center gap-3 text-[18px]">
                                 <span className="font-semibold text-[#17131F]">Хугацаа</span>
-                                <input
-                                    type="number"
-                                    min={1}
-                                    value={duration}
-                                    onChange={(event) => setDuration(Number(event.target.value))}
+                                <p
                                     className="min-w-0 border-0 bg-transparent p-0 text-right text-[18px] text-[#2A2434] outline-none"
-                                />
+                                >
+                                    {examData?.examById.duration}
+                                </p>
                             </div>
 
                             <div className="grid grid-cols-[120px_minmax(0,1fr)] items-center gap-3 text-[18px]">
@@ -201,6 +216,8 @@ export default function TeacherExamCreatePage() {
                                     onChange={(event) => setTotalScore(Number(event.target.value))}
                                     className="min-w-0 border-0 bg-transparent p-0 text-right text-[18px] text-[#2A2434] outline-none"
                                 />
+
+                                replace onoo later
                             </div>
 
                             <div className="grid grid-cols-[120px_minmax(0,1fr)] items-center gap-3 text-[18px]">

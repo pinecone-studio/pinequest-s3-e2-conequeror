@@ -300,11 +300,10 @@ export default function StudentPage() {
 
           {feedback ? (
             <div
-              className={`mt-6 rounded-[18px] border px-4 py-3 text-[14px] ${
-                feedback.tone === "success"
+              className={`mt-6 rounded-[18px] border px-4 py-3 text-[14px] ${feedback.tone === "success"
                   ? "border-[#D6F4DD] bg-[#F4FFF6] text-[#1E6E36]"
                   : "border-[#FFD8D8] bg-[#FFF7F7] text-[#B63B3B]"
-              }`}
+                }`}
             >
               {feedback.message}
             </div>

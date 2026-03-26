@@ -8,6 +8,7 @@ export const questions = sqliteTable('questions', {
     question: text().notNull(),
 
     examId: text().notNull().references(() => exams.id, { onDelete: "cascade" }),
+    indexOnExam: int().notNull(),
 
     imageUrl: text(),
     videoUrl: text(),
