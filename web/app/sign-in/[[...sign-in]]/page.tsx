@@ -48,7 +48,7 @@ export default function SignInPage() {
 
   useEffect(() => {
     if (isSignedIn) {
-      router.replace("/dashboard");
+      router.replace("/auth/after-sign-in");
     }
   }, [isSignedIn, router]);
 
