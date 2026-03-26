@@ -1,6 +1,6 @@
 "use client";
 
-import { useAuth, useUser } from "@clerk/nextjs";
+import { useAuth } from "@clerk/nextjs";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useMutation, useQuery } from "@apollo/client/react";
@@ -66,12 +66,12 @@ export function TeacherSchoolRequests() {
 
   const [showClassCode, setShowClassCode] = useState(false)
 
-  const [createClassRoom, { data: createClassroomData, 
+  const [createClassRoom, { data: createClassroomData,
     // loading: createClassroomLoading,
     //  error: createClassroomError 
-    }] = useMutation<createClassroomData>(createClassroomMutation)
+  }] = useMutation<createClassroomData>(createClassroomMutation)
 
-  const { data: myClassroomData, 
+  const { data: myClassroomData,
     // loading: myClassroomLoading, 
     error: myClassroomError
   } = useQuery<myClassroomData>(getMyClassrooms)
@@ -141,10 +141,6 @@ export function TeacherSchoolRequests() {
       }
 
       setShowClassCode(true)
-      useEffect(() => {
-        console.log(res.error)
-
-      }, [res])
 
       setClassName("");
       await loadClassroomData();
