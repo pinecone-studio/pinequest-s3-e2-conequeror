@@ -1,28 +1,20 @@
 "use client";
 
-import { Plus } from "lucide-react";
 import { gql } from "@apollo/client";
 import { useMutation } from "@apollo/client/react";
+import { Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { TeacherExamCard } from "../_component/TeacherExamCard";
 import { examCards, subjectTabs, type SubjectKey } from "../_data/dashboard";
-
-// shadcn dialog
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-  DialogFooter,
 } from "@/components/ui/dialog";
-<<<<<<< Updated upstream
-import { gql } from "@apollo/client";
-import { useMutation } from "@apollo/client/react";
-import { useRouter } from "next/navigation";
-=======
->>>>>>> Stashed changes
 
 interface ExamData {
   createExam: {
@@ -38,16 +30,15 @@ const CREATE_EXAM = gql`
       title
     }
   }
-<<<<<<< Updated upstream
-`
-
-export default function TeacherDashboardPage() {
-=======
 `;
 
 export default function TeacherExamsPage() {
->>>>>>> Stashed changes
   const [activeTab, setActiveTab] = useState<SubjectKey>("all");
+  const [title, setTitle] = useState("");
+  const [subject, setSubject] = useState("");
+  const [description, setDescription] = useState("");
+  const [duration, setDuration] = useState(60);
+  const [grade, setGrade] = useState("");
 
   const router = useRouter();
 
@@ -59,26 +50,7 @@ export default function TeacherExamsPage() {
     return examCards.filter((exam) => exam.subject === activeTab);
   }, [activeTab]);
 
-<<<<<<< Updated upstream
-  const [title, setTitle] = useState("")
-  const [subject, setSubject] = useState("")
-  const [description, setDescription] = useState("")
-
-  const [duration, setDuration] = useState(60)
-  const [grade, setGrade] = useState("")
-
-  const [createExam, { error, 
-    // loading 
-  }] = useMutation<ExamData>(CREATE_EXAM)
-
-=======
-  const [title, setTitle] = useState("");
-  const [subject, setSubject] = useState("");
-  const [description, setDescription] = useState("");
-  const [duration, setDuration] = useState(60);
-  const [grade, setGrade] = useState("");
   const [createExam] = useMutation<ExamData>(CREATE_EXAM);
->>>>>>> Stashed changes
 
   const handleCreateExam = async () => {
     const res = await createExam({
@@ -127,19 +99,17 @@ export default function TeacherExamsPage() {
               </DialogTitle>
             </DialogHeader>
 
-            {/* Form */}
             <div className="space-y-4">
-              {/* Хичээл */}
               <div>
                 <label className="text-sm font-medium">Хичээл</label>
-                <input className="mt-1 w-full rounded-lg border p-3 text-sm"
+                <input
+                  className="mt-1 w-full rounded-lg border p-3 text-sm"
                   value={subject}
                   onChange={(e) => setSubject(e.target.value)}
                   placeholder="Хичээл сонгох"
                 />
               </div>
 
-              {/* Сэдэв */}
               <div>
                 <label className="text-sm font-medium">Сэдвийн нэр</label>
                 <input
@@ -150,7 +120,6 @@ export default function TeacherExamsPage() {
                 />
               </div>
 
-              {/* Description */}
               <div>
                 <label className="text-sm font-medium">Тодорхойлолт</label>
                 <input
@@ -160,7 +129,7 @@ export default function TeacherExamsPage() {
                   onChange={(e) => setDescription(e.target.value)}
                 />
               </div>
-              {/* Анги */}
+
               <div>
                 <label className="text-sm font-medium">Анги</label>
                 <input
@@ -171,7 +140,6 @@ export default function TeacherExamsPage() {
                 />
               </div>
 
-              {/* Хугацаа */}
               <div>
                 <label className="text-sm font-medium">Хугацаа(минут)</label>
                 <input
@@ -184,8 +152,10 @@ export default function TeacherExamsPage() {
 
             <DialogFooter className="mt-4">
               <button className="px-4 py-2 text-sm">Буцах</button>
-              <button className="rounded-full bg-[#9A7BFF] px-5 py-2 text-sm font-semibold text-white"
-                onClick={handleCreateExam}>
+              <button
+                className="rounded-full bg-[#9A7BFF] px-5 py-2 text-sm font-semibold text-white"
+                onClick={handleCreateExam}
+              >
                 Үргэлжлүүлэх
               </button>
             </DialogFooter>
