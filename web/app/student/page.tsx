@@ -1,482 +1,402 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState, type ChangeEvent, type FormEvent } from "react";
+import { useUser } from "@clerk/nextjs";
+import { Eye, EyeOff } from "lucide-react";
+import Image from "next/image";
+import { Button } from "@/components/ui/button";
 
-type Screen = "dashboard" | "confirm" | "take";
-
-type ActiveExam = {
-  id: string;
-  title: string;
-  duration: number;
-  questionCount: number;
+type FormValues = {
+  email: string;
+  lastName: string;
+  firstName: string;
+  school: string;
   grade: string;
+  group: string;
+  password: string;
+  confirmPassword: string;
 };
 
-type PreviousResult = {
-  id: string;
-  title: string;
-  date: string;
-  score: number;
+const initialFormValues: FormValues = {
+  email: "",
+  lastName: "",
+  firstName: "",
+  school: "",
+  grade: "",
+  group: "",
+  password: "",
+  confirmPassword: "",
 };
 
-type Question = {
-  id: string;
-  order: number;
-  question: string;
-  options: {
-    id: string;
-    label: string;
-    value: string;
-  }[];
-};
+const inputClassName =
+  "h-12 w-full rounded-[14px] border border-[#EAE6F5] bg-white px-4 text-[15px] text-[#1F1B2D] shadow-none outline-none transition-colors placeholder:text-[#B7B0C8] focus:border-[#A592FF] focus:ring-4 focus:ring-[#A592FF]/10";
 
-const activeExams: ActiveExam[] = [
-  {
-    id: "math-test-3",
-    title: "Математик - Тест 3",
-    duration: 45,
-    questionCount: 20,
-    grade: "10-р анги",
-  },
-  {
-    id: "english-vocab",
-    title: "Англи хэл - Үгийн сан",
-    duration: 30,
-    questionCount: 30,
-    grade: "10-р анги",
-  },
-];
-
-const previousResults: PreviousResult[] = [
-  {
-    id: "physics-1",
-    title: "Физик - Кинематик",
-    date: "2024-03-15",
-    score: 82,
-  },
-  {
-    id: "math-2",
-    title: "Математик - Тест 2",
-    date: "2024-03-10",
-    score: 91,
-  },
-];
-
-const questions: Question[] = [
-  {
-    id: "q1",
-    order: 1,
-    question: "JavaScript-ийг анх хэн бүтээсэн бэ?",
-    options: [
-      { id: "a", label: "A", value: "Bill Gates" },
-      { id: "b", label: "B", value: "Elon Musk" },
-      { id: "c", label: "C", value: "Brendan Eich" },
-      { id: "d", label: "D", value: "Mark Zuckerberg" },
-    ],
-  },
-  {
-    id: "q2",
-    order: 2,
-    question: "2x + 5 = 15 тэгшитгэлийн шийд аль вэ?",
-    options: [
-      { id: "a", label: "A", value: "x = 3" },
-      { id: "b", label: "B", value: "x = 5" },
-      { id: "c", label: "C", value: "x = 10" },
-      { id: "d", label: "D", value: "x = 7" },
-    ],
-  },
-  {
-    id: "q3",
-    order: 3,
-    question: "5 + 7 = ?",
-    options: [
-      { id: "a", label: "A", value: "10" },
-      { id: "b", label: "B", value: "11" },
-      { id: "c", label: "C", value: "12" },
-      { id: "d", label: "D", value: "13" },
-    ],
-  },
-  {
-    id: "q4",
-    order: 4,
-    question: "9 × 3 = ?",
-    options: [
-      { id: "a", label: "A", value: "27" },
-      { id: "b", label: "B", value: "24" },
-      { id: "c", label: "C", value: "21" },
-      { id: "d", label: "D", value: "18" },
-    ],
-  },
-  {
-    id: "q5",
-    order: 5,
-    question: "√81 = ?",
-    options: [
-      { id: "a", label: "A", value: "7" },
-      { id: "b", label: "B", value: "8" },
-      { id: "c", label: "C", value: "9" },
-      { id: "d", label: "D", value: "10" },
-    ],
-  },
-];
-
-function formatTime(totalSeconds: number) {
-  const mins = Math.floor(totalSeconds / 60);
-  const secs = totalSeconds % 60;
-
-  return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+function FormField({
+  id,
+  label,
+  type = "text",
+  placeholder,
+  autoComplete,
+  value,
+  onChange,
+}: {
+  id: keyof FormValues;
+  label: string;
+  type?: React.HTMLInputTypeAttribute;
+  placeholder: string;
+  autoComplete?: string;
+  value: string;
+  onChange: (event: ChangeEvent<HTMLInputElement>) => void;
+}) {
+  return (
+    <div className="space-y-2.5">
+      <label
+        htmlFor={id}
+        className="block text-[15px] font-semibold tracking-tight text-[#292235]"
+      >
+        {label}
+      </label>
+      <input
+        id={id}
+        name={id}
+        type={type}
+        autoComplete={autoComplete}
+        className={inputClassName}
+        placeholder={placeholder}
+        value={value}
+        onChange={onChange}
+        required
+      />
+    </div>
+  );
 }
 
-export default function StudentPage() {
-  const [screen, setScreen] = useState<Screen>("dashboard");
-  const [selectedExam, setSelectedExam] = useState<ActiveExam>(activeExams[0]);
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [answers, setAnswers] = useState<Record<string, string>>({});
-  const [secondsLeft, setSecondsLeft] = useState(selectedExam.duration * 60);
+function PasswordField({
+  id,
+  label,
+  placeholder,
+  autoComplete,
+  value,
+  visible,
+  onChange,
+  onToggle,
+}: {
+  id: "password" | "confirmPassword";
+  label: string;
+  placeholder: string;
+  autoComplete?: string;
+  value: string;
+  visible: boolean;
+  onChange: (event: ChangeEvent<HTMLInputElement>) => void;
+  onToggle: () => void;
+}) {
+  const Icon = visible ? EyeOff : Eye;
 
-  useEffect(() => {
-    if (screen !== "take") return;
-    if (secondsLeft <= 0) return;
-
-    const timer = setInterval(() => {
-      setSecondsLeft((prev) => (prev > 0 ? prev - 1 : 0));
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [screen, secondsLeft]);
-
-  useEffect(() => {
-    setSecondsLeft(selectedExam.duration * 60);
-  }, [selectedExam]);
-
-  const currentQuestion = questions[currentIndex];
-
-  const progressPercent = useMemo(() => {
-    return ((currentIndex + 1) / questions.length) * 100;
-  }, [currentIndex]);
-
-  const answeredCount = Object.keys(answers).length;
-
-  const handleSelectExam = (exam: ActiveExam) => {
-    setSelectedExam(exam);
-    setScreen("confirm");
-  };
-
-  const handleStartExam = () => {
-    setCurrentIndex(0);
-    setAnswers({});
-    setSecondsLeft(selectedExam.duration * 60);
-    setScreen("take");
-  };
-
-  const handleSelectAnswer = (value: string) => {
-    setAnswers((prev) => ({
-      ...prev,
-      [currentQuestion.id]: value,
-    }));
-  };
-
-  const handlePrev = () => {
-    setCurrentIndex((prev) => Math.max(prev - 1, 0));
-  };
-
-  const handleNext = () => {
-    setCurrentIndex((prev) => Math.min(prev + 1, questions.length - 1));
-  };
-
-  const topNav = (
-    <div className="border-b border-[#E5E7EB] bg-white">
-      <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-        <div className="flex items-center gap-2">
-          <div className="rounded-md bg-[#1677FF] px-2 py-1 text-[12px] font-semibold text-white">
-            LMS
-          </div>
-          <span className="text-[14px] font-medium text-[#374151]">Сурагч</span>
-        </div>
-
-        <div className="flex items-center gap-6 text-[14px] text-[#6B7280]">
-          <button
-            onClick={() => setScreen("dashboard")}
-            className={`rounded-full px-4 py-1.5 ${
-              screen === "dashboard"
-                ? "bg-[#1677FF] text-white"
-                : "text-[#6B7280]"
-            }`}
-          >
-            Нүүр
-          </button>
-          <button className="text-[#9CA3AF]">Шалгалтууд</button>
-          <button className="text-[#9CA3AF]">Профайл</button>
-        </div>
+  return (
+    <div className="space-y-2.5">
+      <label
+        htmlFor={id}
+        className="block text-[15px] font-semibold tracking-tight text-[#292235]"
+      >
+        {label}
+      </label>
+      <div className="relative">
+        <input
+          id={id}
+          name={id}
+          type={visible ? "text" : "password"}
+          autoComplete={autoComplete}
+          className={`${inputClassName} pr-12`}
+          placeholder={placeholder}
+          value={value}
+          onChange={onChange}
+          required
+        />
+        <button
+          type="button"
+          aria-label={visible ? "Нууц үгийг нуух" : "Нууц үгийг харах"}
+          onClick={onToggle}
+          className="absolute top-1/2 right-3 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-[#A49CB9] transition hover:bg-[#F6F3FF] hover:text-[#6F5AD8]"
+        >
+          <Icon className="h-4 w-4" />
+        </button>
       </div>
     </div>
   );
+}
+export function StudentIllustration() {
+  return (
+    <div
+      style={{
+        position: "relative",
+        width: "100%",
+        maxWidth: "720px",
+        aspectRatio: "679 / 642.86",
+        margin: "0 auto",
+      }}
+    >
+      <div
+        style={{
+          position: "absolute",
+          inset: "-6%",
+          borderRadius: "80px",
+          background: "linear-gradient(180deg, #E9D0F7 0%, #B8CBF7 100%)",
+          opacity: 0.45,
+          filter: "blur(90px)",
+          pointerEvents: "none",
+        }}
+      />
+      <div
+        style={{
+          position: "absolute",
+          inset: "3%",
+          borderRadius: "60px",
+          background: "linear-gradient(180deg, #E9D0F7 0%, #B8CBF7 100%)",
+          opacity: 0.72,
+          filter: "blur(30px)",
+          pointerEvents: "none",
+        }}
+      />
+      <div
+        style={{
+          position: "absolute",
+          inset: "6%",
+          borderRadius: "48px",
+          background: "linear-gradient(180deg, #EDE0FA 0%, #C5D4F8 100%)",
+          pointerEvents: "none",
+        }}
+      />
+      <div
+        style={{
+          position: "absolute",
+          inset: "6%",
+          borderRadius: "48px",
+          background:
+            "radial-gradient(circle at 50% 0%, rgba(255,255,255,0.55) 0%, transparent 62%)",
+          pointerEvents: "none",
+        }}
+      />
+      <div
+        style={{
+          position: "absolute",
+          inset: "6%",
+          borderRadius: "48px",
+          border: "1.5px solid rgba(255,255,255,0.6)",
+          pointerEvents: "none",
+        }}
+      />
+      <div
+        style={{
+          position: "absolute",
+          bottom: "6%",
+          left: "50%",
+          transform: "translateX(-50%)",
+          width: "70%",
+          height: "60px",
+          borderRadius: "9999px",
+          background: "rgba(214, 204, 255, 0.5)",
+          filter: "blur(32px)",
+          pointerEvents: "none",
+        }}
+      />
+      <Image
+        src="/studentHome.png"
+        alt="Student illustration"
+        width={560}
+        height={560}
+        style={{
+          position: "relative",
+          zIndex: 10,
+          width: "78%",
+          height: "auto",
+          maxWidth: "none",
+          left: "50%",
+          top: "50%",
+          transform: "translate(-50%, -50%)",
+          display: "block",
+        }}
+      />
+    </div>
+  );
+}
 
-  if (screen === "dashboard") {
-    return (
-      <main className="min-h-screen bg-[#FAFAFA]">
-        {topNav}
+export default function StudentPage() {
+  const { user } = useUser();
+  const [formValues, setFormValues] = useState<FormValues>(initialFormValues);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [feedback, setFeedback] = useState<{
+    tone: "error" | "success";
+    message: string;
+  } | null>(null);
 
-        <div className="mx-auto max-w-6xl px-6 py-8">
-          <div className="mb-8">
-            <h1 className="text-[32px] font-semibold text-[#111827]">
-              Сайн байна уу!
-            </h1>
-            <p className="mt-1 text-[14px] text-[#9CA3AF]">
-              Өнөөдөр хийх шалгалтууд
-            </p>
-          </div>
+  const resolvedFormValues = useMemo<FormValues>(() => {
+    return {
+      ...formValues,
+      email: formValues.email || user?.primaryEmailAddress?.emailAddress || "",
+      firstName: formValues.firstName || user?.firstName || "",
+      lastName: formValues.lastName || user?.lastName || "",
+    };
+  }, [formValues, user]);
 
-          <section className="space-y-3">
-            <h2 className="text-[14px] font-medium text-[#4B5563]">
-              Идэвхтэй шалгалтууд
-            </h2>
+  const handleInputChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = event.target;
 
-            {activeExams.map((exam) => (
-              <div
-                key={exam.id}
-                className="flex items-center justify-between rounded-[10px] border border-[#E5E7EB] bg-white px-4 py-3"
-              >
-                <div>
-                  <p className="text-[14px] font-medium text-[#111827]">
-                    {exam.title}
-                  </p>
-                  <p className="mt-1 text-[12px] text-[#9CA3AF]">
-                    {exam.duration} минут · {exam.questionCount} асуулт
-                  </p>
-                </div>
+    setFormValues((previous) => ({
+      ...previous,
+      [name]: value,
+    }));
 
-                <button
-                  onClick={() => handleSelectExam(exam)}
-                  className="rounded-[8px] bg-[#1677FF] px-4 py-2 text-[13px] font-medium text-white hover:bg-[#0F67E6]"
-                >
-                  Эхлүүлэх
-                </button>
-              </div>
-            ))}
-          </section>
+    if (feedback) {
+      setFeedback(null);
+    }
+  };
 
-          <section className="mt-8 space-y-3">
-            <h2 className="text-[14px] font-medium text-[#4B5563]">
-              Өмнөх үр дүнгүүд
-            </h2>
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
 
-            {previousResults.map((item) => (
-              <div
-                key={item.id}
-                className="flex items-center justify-between rounded-[10px] border border-[#E5E7EB] bg-white px-4 py-3"
-              >
-                <div>
-                  <p className="text-[14px] font-medium text-[#111827]">
-                    {item.title}
-                  </p>
-                  <p className="mt-1 text-[12px] text-[#9CA3AF]">{item.date}</p>
-                </div>
+    if (resolvedFormValues.password.length < 8) {
+      setFeedback({
+        tone: "error",
+        message: "Нууц үг хамгийн багадаа 8 тэмдэгттэй байх хэрэгтэй.",
+      });
+      return;
+    }
 
-                <div className="text-[14px] font-semibold text-[#10B981]">
-                  {item.score}%
-                </div>
-              </div>
-            ))}
-          </section>
-        </div>
-      </main>
-    );
-  }
+    if (resolvedFormValues.password !== resolvedFormValues.confirmPassword) {
+      setFeedback({
+        tone: "error",
+        message: "Нууц үг давтах талбар ижил биш байна.",
+      });
+      return;
+    }
 
-  if (screen === "confirm") {
-    return (
-      <main className="min-h-screen bg-[#FAFAFA]">
-        {topNav}
-
-        <div className="flex min-h-[calc(100vh-73px)] items-center justify-center px-6">
-          <div className="w-full max-w-[320px] rounded-[18px] border border-[#E5E7EB] bg-white px-6 py-7 text-center shadow-[0_8px_24px_rgba(15,23,42,0.06)]">
-            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full border border-[#BFDBFE] bg-[#EFF6FF] text-[20px] text-[#2563EB]">
-              ⏱
-            </div>
-
-            <h1 className="text-[22px] font-semibold text-[#111827]">
-              {selectedExam.title}
-            </h1>
-            <p className="mt-1 text-[13px] text-[#9CA3AF]">
-              {selectedExam.grade}
-            </p>
-
-            <div className="mt-4 flex items-center justify-center gap-4 text-[13px] text-[#6B7280]">
-              <span>{selectedExam.duration} минут</span>
-              <span>{selectedExam.questionCount} асуулт</span>
-            </div>
-
-            <div className="mt-4 rounded-[10px] border border-[#FDE7C7] bg-[#FFF7ED] px-3 py-2 text-[12px] text-[#D97706]">
-              Хугацаа дуусвал шалгалт автоматаар илгээгдэнэ
-            </div>
-
-            <div className="mt-6 grid grid-cols-2 gap-3">
-              <button
-                onClick={() => setScreen("dashboard")}
-                className="rounded-[10px] bg-[#F3F4F6] px-4 py-2.5 text-[14px] font-medium text-[#6B7280]"
-              >
-                Буцах
-              </button>
-
-              <button
-                onClick={handleStartExam}
-                className="rounded-[10px] bg-[#1677FF] px-4 py-2.5 text-[14px] font-medium text-white"
-              >
-                Эхлүүлэх
-              </button>
-            </div>
-          </div>
-        </div>
-      </main>
-    );
-  }
+    setFeedback({
+      tone: "success",
+      message: `${resolvedFormValues.firstName || "Сурагч"}-ийн бүртгэлийн мэдээлэл бэлэн боллоо.`,
+    });
+  };
 
   return (
-    <main className="min-h-screen bg-[#FAFAFA]">
-      <div className="border-b border-[#E5E7EB] bg-white">
-        <div className="mx-auto max-w-7xl px-6 py-4">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-[13px] font-medium text-[#111827]">
-                {selectedExam.title}
-              </p>
-              <p className="mt-1 text-[12px] text-[#9CA3AF]">
-                Асуулт {currentIndex + 1}/{questions.length}
-              </p>
-            </div>
+    <main className="relative min-h-screen overflow-hidden bg-[#FEFCFF]">
+      <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_18%_42%,rgba(183,169,255,0.24),transparent_24%),radial-gradient(circle_at_66%_52%,rgba(190,236,255,0.16),transparent_18%),linear-gradient(180deg,#FFFFFF_0%,#FEFBFF_100%)]" />
 
-            <div className="rounded-[10px] border border-[#CBD5E1] px-4 py-2 text-[20px] font-semibold text-[#334155]">
-              {formatTime(secondsLeft)}
-            </div>
+      <section className="mx-auto grid min-h-screen w-full max-w-[1320px] items-center gap-10 px-6 py-8 lg:grid-cols-[minmax(0,1.08fr)_420px] lg:gap-16 lg:px-10 lg:py-12">
+        <div className="order-2 lg:order-1">
+          <div className="relative flex min-h-[380px] items-center justify-center overflow-hidden rounded-[42px] px-4 py-8 lg:min-h-[720px] lg:px-8">
+            <StudentIllustration />
+          </div>
+        </div>
+
+        <div className="order-1 w-full max-w-[420px] justify-self-end lg:order-2">
+          <div className="space-y-1">
+            <p className="text-[13px] font-semibold tracking-[0.24em] text-[#A29AB9] uppercase">
+              Student Account
+            </p>
+            <h1 className="text-[40px] leading-tight font-semibold tracking-tight text-[#201A2F]">
+              Бүртгүүлэх
+            </h1>
           </div>
 
-          <div className="mt-4 h-[6px] w-full overflow-hidden rounded-full bg-[#E5E7EB]">
+          {feedback ? (
             <div
-              className="h-full rounded-full bg-[#1677FF] transition-all"
-              style={{ width: `${progressPercent}%` }}
+              className={`mt-6 rounded-[18px] border px-4 py-3 text-[14px] ${
+                feedback.tone === "success"
+                  ? "border-[#D6F4DD] bg-[#F4FFF6] text-[#1E6E36]"
+                  : "border-[#FFD8D8] bg-[#FFF7F7] text-[#B63B3B]"
+              }`}
+            >
+              {feedback.message}
+            </div>
+          ) : null}
+
+          <form className="mt-8 space-y-5" onSubmit={handleSubmit}>
+            <FormField
+              id="email"
+              label="И-мэйл"
+              type="email"
+              autoComplete="email"
+              placeholder="example@school.mn"
+              value={resolvedFormValues.email}
+              onChange={handleInputChange}
             />
-          </div>
+
+            <FormField
+              id="lastName"
+              label="Овог"
+              autoComplete="family-name"
+              placeholder="Овог"
+              value={resolvedFormValues.lastName}
+              onChange={handleInputChange}
+            />
+
+            <FormField
+              id="firstName"
+              label="Нэр"
+              autoComplete="given-name"
+              placeholder="Нэр"
+              value={resolvedFormValues.firstName}
+              onChange={handleInputChange}
+            />
+
+            <FormField
+              id="school"
+              label="Сургууль"
+              autoComplete="organization"
+              placeholder="Сургууль"
+              value={resolvedFormValues.school}
+              onChange={handleInputChange}
+            />
+
+            <FormField
+              id="grade"
+              label="Анги"
+              placeholder="Анги"
+              value={resolvedFormValues.grade}
+              onChange={handleInputChange}
+            />
+
+            <FormField
+              id="group"
+              label="Бүлэг"
+              placeholder="Бүлэг"
+              value={resolvedFormValues.group}
+              onChange={handleInputChange}
+            />
+
+            <PasswordField
+              id="password"
+              label="Нууц үг"
+              autoComplete="new-password"
+              placeholder="........"
+              value={resolvedFormValues.password}
+              visible={showPassword}
+              onChange={handleInputChange}
+              onToggle={() => setShowPassword((previous) => !previous)}
+            />
+
+            <PasswordField
+              id="confirmPassword"
+              label="Нууц үг давтах"
+              autoComplete="new-password"
+              placeholder="........"
+              value={resolvedFormValues.confirmPassword}
+              visible={showConfirmPassword}
+              onChange={handleInputChange}
+              onToggle={() => setShowConfirmPassword((previous) => !previous)}
+            />
+
+            <div className="flex justify-end pt-4">
+              <Button
+                type="submit"
+                className="h-12 min-w-[116px] cursor-pointer rounded-[16px] bg-[#9B85FF] px-7 text-[15px] font-semibold text-white shadow-[0_16px_30px_rgba(155,133,255,0.34)] hover:bg-[#8D74FC]"
+              >
+                Бүртгүүлэх
+              </Button>
+            </div>
+          </form>
         </div>
-      </div>
-
-      <div className="mx-auto grid max-w-7xl grid-cols-[180px_minmax(0,1fr)] gap-8 px-6 py-8">
-        <div className="w-[200px] rounded-[14px] border border-[#E5E7EB] bg-white p-2">
-          <p className="mb-4 text-[14px] font-medium text-[#374151]">
-            Асуултууд
-          </p>
-
-          <div className="grid grid-cols-5 gap-2">
-            {questions.map((question, index) => {
-              const active = currentIndex === index;
-              const answered = Boolean(answers[question.id]);
-
-              return (
-                <button
-                  key={question.id}
-                  onClick={() => setCurrentIndex(index)}
-                  className={[
-                    "h-9 w-9 rounded-[8px] border text-[12px] font-medium transition",
-                    active
-                      ? "border-[#1D4ED8] bg-[#1D4ED8] text-white"
-                      : answered
-                        ? "border-[#99F6E4] bg-[#ECFEFF] text-[#0F766E]"
-                        : "border-[#E5E7EB] bg-white text-[#6B7280]",
-                  ].join(" ")}
-                >
-                  {index + 1}
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="mt-5 space-y-2 text-[12px] text-[#6B7280]">
-            <div className="flex items-center justify-between">
-              <span>Хариулсан:</span>
-              <span>{answeredCount}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span>Үлдсэн:</span>
-              <span>{questions.length - answeredCount}</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex min-h-[70vh] flex-col">
-          <div className="mx-auto w-full max-w-[700px] rounded-[16px] border border-[#E5E7EB] bg-white p-6">
-            <div className="mb-4 inline-flex rounded-full bg-[#F3F4F6] px-3 py-1 text-[12px] text-[#6B7280]">
-              Асуулт {currentIndex + 1}/{questions.length}
-            </div>
-
-            <h2 className="mb-5 text-[28px] font-medium text-[#111827]">
-              {currentQuestion.question}
-            </h2>
-
-            <div className="space-y-3">
-              {currentQuestion.options.map((option) => {
-                const active = answers[currentQuestion.id] === option.value;
-
-                return (
-                  <button
-                    key={option.id}
-                    onClick={() => handleSelectAnswer(option.value)}
-                    className={[
-                      "flex w-full items-center gap-4 rounded-[12px] border px-4 py-4 text-left transition",
-                      active
-                        ? "border-[#1677FF] bg-[#EFF6FF]"
-                        : "border-[#E5E7EB] bg-white hover:border-[#CBD5E1]",
-                    ].join(" ")}
-                  >
-                    <span
-                      className={[
-                        "flex h-8 w-8 items-center justify-center rounded-full border text-[13px] font-medium",
-                        active
-                          ? "border-[#1677FF] bg-[#1677FF] text-white"
-                          : "border-[#D1D5DB] text-[#6B7280]",
-                      ].join(" ")}
-                    >
-                      {option.label}
-                    </span>
-
-                    <span className="text-[15px] text-[#374151]">
-                      {option.value}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="mx-auto mt-10 flex w-full max-w-[700px] items-center justify-between">
-            <button
-              onClick={handlePrev}
-              disabled={currentIndex === 0}
-              className="min-w-[120px] rounded-[10px] bg-[#F3F4F6] px-5 py-3 text-[14px] font-medium text-[#9CA3AF] disabled:opacity-70"
-            >
-              Өмнөх
-            </button>
-
-            <div className="flex items-center gap-2">
-              {questions.map((_, index) => (
-                <span
-                  key={index}
-                  className={[
-                    "h-2.5 w-2.5 rounded-full",
-                    currentIndex === index ? "bg-[#1677FF]" : "bg-[#D1D5DB]",
-                  ].join(" ")}
-                />
-              ))}
-            </div>
-
-            <button
-              onClick={handleNext}
-              className="min-w-[140px] rounded-[10px] bg-[#1677FF] px-5 py-3 text-[14px] font-medium text-white"
-            >
-              {currentIndex === questions.length - 1 ? "Илгээх" : "Дараах"}
-            </button>
-          </div>
-        </div>
-      </div>
+      </section>
     </main>
   );
 }
