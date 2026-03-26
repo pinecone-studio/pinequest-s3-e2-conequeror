@@ -257,7 +257,6 @@ export default function TeacherDashboardPage() {
                   <SubjectIcon className="h-5 w-5 text-[#111111]" />
                 </div>
 
-                <StatusBadge status={card.status} />
               </div>
 
               <div className="mt-4">
