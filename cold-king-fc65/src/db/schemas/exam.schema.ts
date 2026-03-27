@@ -14,5 +14,9 @@ export const exams = sqliteTable("exams", {
 
     grade: text().notNull(),
 
-    createdBy: text().notNull()
+    createdBy: text().notNull(),
+
+    classroomId: text(),
+    scheduledDate: text(),
+    startTime: text()
 })

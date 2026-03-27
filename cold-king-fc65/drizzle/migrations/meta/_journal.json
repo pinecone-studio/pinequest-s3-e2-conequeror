@@ -15,6 +15,13 @@
       "when": 1774581000000,
       "tag": "0001_student_exam_submissions",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1774584600000,
+      "tag": "0002_exam_schedule_fields",
+      "breakpoints": true
     }
   ]
 }

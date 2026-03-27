@@ -5,6 +5,8 @@ import { useQuery } from "@apollo/client/react";
 import { useUser } from "@clerk/nextjs";
 import { ChevronLeft, Loader2 } from "lucide-react";
 import { useMemo, useState } from "react";
+import { useEffect } from "react";
+import { cloudflareProfileSyncedEvent } from "@/components/auth/cloudflare-student-sync";
 import ExamCard from "../../_component/ExamCard";
 import {
   formatStudentExamTimestamp,
@@ -84,6 +86,8 @@ const GET_STUDENT_EXAM_SUBMISSION_DETAIL = gql`
       correctAnswers
       scorePercent
       submittedAt
+      scheduledDate
+      startTime
       answers {
         questionId
         order
@@ -165,6 +169,7 @@ export default function StudentResultPage() {
     data: submissionsData,
     loading: submissionsLoading,
     error: submissionsError,
+    refetch: refetchSubmissions,
   } = useQuery<MyExamSubmissionsData>(GET_MY_EXAM_SUBMISSIONS);
   const {
     data: detailData,
@@ -185,6 +190,21 @@ export default function StudentResultPage() {
     user?.fullName ||
     user?.username ||
     "Сурагч";
+
+  useEffect(() => {
+    const handleProfileSynced = () => {
+      void refetchSubmissions();
+    };
+
+    window.addEventListener(cloudflareProfileSyncedEvent, handleProfileSynced);
+
+    return () => {
+      window.removeEventListener(
+        cloudflareProfileSyncedEvent,
+        handleProfileSynced,
+      );
+    };
+  }, [refetchSubmissions]);
 
   const palette = useMemo<
     { order: number; status: ReviewPaletteStatus }[]
@@ -245,8 +265,14 @@ export default function StudentResultPage() {
 
   if (selectedResult) {
     const summaryRows = [
-      { label: "Огноо", value: formatStudentExamTimestamp(selectedResult.submittedAt) },
-      { label: "Оноо", value: `${selectedResult.correctAnswers}/${selectedResult.questionCount}` },
+      {
+        label: "Огноо",
+        value: formatStudentExamTimestamp(selectedResult.submittedAt),
+      },
+      {
+        label: "Оноо",
+        value: `${selectedResult.correctAnswers}/${selectedResult.questionCount}`,
+      },
       { label: "Хувь", value: `${selectedResult.scorePercent}%` },
       { label: "Хугацаа", value: `${selectedResult.duration} мин` },
       { label: "Нийт дасгал", value: String(selectedResult.questionCount) },
@@ -272,8 +298,11 @@ export default function StudentResultPage() {
                 {displayName}
               </h2>
               <p className="mt-1 text-[14px] text-[#6B7280]">
-                {getStudentExamPresentation(selectedResult.subject).subjectLabel} /{" "}
-                {selectedResult.title}
+                {
+                  getStudentExamPresentation(selectedResult.subject)
+                    .subjectLabel
+                }{" "}
+                / {selectedResult.title}
               </p>
 
               <div className="mt-4 space-y-2.5">
@@ -387,7 +416,9 @@ export default function StudentResultPage() {
   return (
     <div>
       <div className="mb-8">
-        <h1 className="text-[24px] font-bold text-gray-900">Миний үр дүнгүүд</h1>
+        <h1 className="text-[24px] font-bold text-gray-900">
+          Миний үр дүнгүүд
+        </h1>
         <p className="mt-1 text-[14px] text-[#5B5B5B]">
           Өмнө өгсөн шалгалтуудын дүнгүүд.
         </p>

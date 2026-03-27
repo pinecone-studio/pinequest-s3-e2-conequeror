@@ -1,7 +1,7 @@
 import type { GraphQLContext } from "../../../server";
+import { classrooms } from "../../../db/schemas/classroom.schema";
 import { exams } from "../../../db/schemas/exam.schema";
 import { and, eq } from "drizzle-orm";
-import { assertAuthenticated, notFoundError } from "../../errors";
 
 export const examMutation = {
     Mutation: {
@@ -32,52 +32,63 @@ export const examMutation = {
                     duration: args.input.duration,
                     grade: args.input.grade,
                     openStatus: args.input.openStatus ?? false,
-                    createdBy: userId,
+                    createdBy: context.auth.userId,
                 })
+                .where(eq(exams.id, args.input.examId))
                 .returning()
                 .get();
         },
-        updateExam: async (
+        scheduleExam: async (
             _: unknown,
             args: {
                 input: {
                     examId: string;
-                    title: string;
-                    subject: string;
-                    description?: string | null;
-                    duration: number;
-                    grade: string;
+                    classroomId: string;
+                    scheduledDate: string;
+                    startTime: string;
                 };
             },
             context: GraphQLContext,
         ) => {
-            const userId = assertAuthenticated(context);
+            if (!context.auth.userId || !context.auth.isAuthenticated) {
+                throw new Error("Unauthorized");
+            }
 
-            const existingExam = await context.db
+            const teacherId = context.auth.userId;
+            const exam = await context.db
                 .select()
                 .from(exams)
+                .where(and(eq(exams.id, args.input.examId), eq(exams.createdBy, teacherId)))
+                .get();
+
+            if (!exam) {
+                throw new Error("Exam not found.");
+            }
+
+            const classroom = await context.db
+                .select()
+                .from(classrooms)
                 .where(
                     and(
-                        eq(exams.id, args.input.examId),
-                        eq(exams.createdBy, userId),
+                        eq(classrooms.id, args.input.classroomId),
+                        eq(classrooms.teacherId, teacherId),
                     ),
                 )
                 .get();
 
-            if (!existingExam) {
-                throw notFoundError("Exam not found.");
+            if (!classroom) {
+                throw new Error("Classroom not found.");
             }
 
             return context.db
                 .update(exams)
                 .set({
-                    title: args.input.title,
-                    subject: args.input.subject,
-                    description: args.input.description ?? null,
-                    duration: args.input.duration,
-                    grade: args.input.grade,
+                    classroomId: classroom.id,
+                    scheduledDate: args.input.scheduledDate,
+                    startTime: args.input.startTime,
+                    openStatus: true,
                 })
-                .where(eq(exams.id, args.input.examId))
+                .where(eq(exams.id, exam.id))
                 .returning()
                 .get();
         },

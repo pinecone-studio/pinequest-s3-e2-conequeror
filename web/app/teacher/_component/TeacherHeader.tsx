@@ -4,7 +4,7 @@ import { useClerk, useUser } from "@clerk/nextjs";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutGrid, FileText, Users } from "lucide-react";
+import { LayoutGrid, FileText, LogOut, Users } from "lucide-react";
 
 const navItems = [
   {
@@ -37,9 +37,10 @@ function isNavItemActive(
 
 export function TeacherHeader() {
   const pathname = usePathname();
-  const { openUserProfile } = useClerk();
+  const { openUserProfile, signOut } = useClerk();
   const { user } = useUser();
   const rawFullName = user?.unsafeMetadata?.fullName;
+  const rawRole = user?.unsafeMetadata?.role;
   const displayName =
     typeof rawFullName === "string" && rawFullName.trim()
       ? rawFullName
@@ -48,6 +49,8 @@ export function TeacherHeader() {
         user?.firstName ||
         user?.username ||
         "Багш";
+  const email = user?.primaryEmailAddress?.emailAddress ?? "";
+  const roleLabel = rawRole === "teacher" ? "Багш" : "Хэрэглэгч";
   const initials = displayName
     .split(/\s+/)
     .filter(Boolean)
@@ -96,25 +99,41 @@ export function TeacherHeader() {
           })}
         </nav>
 
-        <button
-          type="button"
-          onClick={() => openUserProfile()}
-          aria-label="Open profile"
-          className="flex items-center gap-3 border-l border-[#E7E8F0] pl-5 text-left transition hover:opacity-90"
-        >
-          <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-full border border-[#E7E8F0] bg-gradient-to-br from-[#F4A261] to-[#E76F51] text-[14px] font-bold text-white">
-            {initials || "Б"}
-          </div>
+        <div className="flex items-center gap-3 border-l border-[#E7E8F0] pl-5">
+          <button
+            type="button"
+            onClick={() => openUserProfile()}
+            aria-label="Open profile"
+            className="flex items-center gap-3 text-left transition hover:opacity-90"
+          >
+            <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-full border border-[#E7E8F0] bg-gradient-to-br from-[#F4A261] to-[#E76F51] text-[14px] font-bold text-white">
+              {initials || "Б"}
+            </div>
 
-          <div className="leading-tight">
-            <p className="text-[13px] font-medium text-[#9A98A3]">
-              Өдрийн мэнд
-            </p>
-            <p className="text-[15px] font-semibold text-[#111111]">
-              {displayName}
-            </p>
-          </div>
-        </button>
+            <div className="leading-tight">
+              <div className="flex items-center gap-2">
+                <p className="text-[15px] font-semibold text-[#111111]">
+                  {displayName}
+                </p>
+                <span className="rounded-full bg-[#F2F0FF] px-2.5 py-1 text-[11px] font-semibold text-[#7E66DC]">
+                  {roleLabel}
+                </span>
+              </div>
+              <p className="mt-1 text-[12px] font-medium text-[#9A98A3]">
+                {email || "teacher@pinequest.app"}
+              </p>
+            </div>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => void signOut({ redirectUrl: "/sign-in" })}
+            className="inline-flex h-10 items-center gap-2 rounded-full border border-[#D8DAE3] px-4 text-[13px] font-medium text-[#51475A] transition hover:border-[#8B7FE8] hover:bg-[#F7F3FF] hover:text-[#6A54D8]"
+          >
+            <LogOut size={14} />
+            Log out
+          </button>
+        </div>
       </div>
     </header>
   );

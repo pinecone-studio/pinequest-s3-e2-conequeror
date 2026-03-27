@@ -20,6 +20,8 @@ interface ExamCardProps {
   date: string;
   bg: string;
   iconBg: string;
+  scheduledDate?: string;
+  startTime?: string;
   onClick?: () => void;
 }
 
@@ -60,7 +62,8 @@ export default function ExamCard({
   grade,
   minutes,
   exercises,
-  date,
+  startTime,
+  scheduledDate,
   bg,
   iconBg,
   onClick,
@@ -91,7 +94,8 @@ export default function ExamCard({
           {exercises} дасгал
         </span>
       </div>
-      <p className="text-[12px] text-[#8B8B8B]">{date}</p>
+      <p className="text-[12px] text-[#8B8B8B]">{scheduledDate || "2026"}</p>
+      <p className="text-[12px] text-[#8B8B8B]">{startTime}</p>
     </div>
   );
 

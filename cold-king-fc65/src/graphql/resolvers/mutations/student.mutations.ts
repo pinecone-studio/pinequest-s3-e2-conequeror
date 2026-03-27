@@ -81,12 +81,13 @@ export const studentMutation = {
 		submitStudentExam: async (
 			_: unknown,
 			args: {
-				input: {
-					examId: string;
-					answers: {
-						questionId: string;
-						selectedChoiceId?: string | null;
-						answerText?: string | null;
+					input: {
+						examId: string;
+						startedAt?: number | null;
+						answers: {
+							questionId: string;
+							selectedChoiceId?: string | null;
+							answerText?: string | null;
 					}[];
 				};
 			},
@@ -122,7 +123,7 @@ export const studentMutation = {
 			let correctAnswers = 0;
 
 			const submissionId = crypto.randomUUID();
-			const startedAt = Date.now();
+			const startedAt = args.input.startedAt ?? Date.now();
 			const submittedAt = Date.now();
 
 			const answerRows = examQuestions.map((question) => {
