@@ -2,7 +2,7 @@
 
 import { gql } from "@apollo/client";
 import { useMutation } from "@apollo/client/react";
-import { Plus } from "lucide-react";
+import { ChevronDown, Plus, Upload } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { TeacherExamCard } from "../_component/TeacherExamCard";
@@ -10,7 +10,6 @@ import { examCards, subjectTabs, type SubjectKey } from "../_data/dashboard";
 import {
   Dialog,
   DialogContent,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -32,15 +31,39 @@ const CREATE_EXAM = gql`
   }
 `;
 
+const subjectOptions = [
+  { value: "social", label: "Нийгэм" },
+  { value: "civics", label: "Иргэний боловсрол" },
+  { value: "math", label: "Математик" },
+  { value: "english", label: "Англи хэл" },
+  { value: "chemistry", label: "Хими" },
+  { value: "physics", label: "Физик" },
+] as const;
+
+const gradeOptions = [
+  "9-р анги",
+  "10-р анги",
+  "11-р анги",
+  "12-р анги",
+] as const;
+
+const durationOptions = [30, 45, 60, 90, 120] as const;
+
+const fieldClassName =
+  "h-[56px] w-full rounded-[16px] border border-[#E9E0F7] bg-white px-4 text-[16px] text-[#1A1623] outline-none transition placeholder:text-[#8E8A94] focus:border-[#B69AF8] focus:ring-4 focus:ring-[#B69AF8]/15";
+
 export default function TeacherExamsPage() {
   const [activeTab, setActiveTab] = useState<SubjectKey>("all");
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [subject, setSubject] = useState("");
-  const [description, setDescription] = useState("");
   const [duration, setDuration] = useState(60);
   const [grade, setGrade] = useState("");
+  const [uploadedFileName, setUploadedFileName] = useState("");
+  const [createError, setCreateError] = useState("");
 
   const router = useRouter();
+  const [createExam, { loading: isCreating }] = useMutation<ExamData>(CREATE_EXAM);
 
   const filteredCards = useMemo(() => {
     if (activeTab === "all") {
@@ -50,25 +73,44 @@ export default function TeacherExamsPage() {
     return examCards.filter((exam) => exam.subject === activeTab);
   }, [activeTab]);
 
-  const [createExam] = useMutation<ExamData>(CREATE_EXAM);
+  const canContinue = Boolean(subject && title.trim() && grade && duration > 0);
 
   const handleCreateExam = async () => {
-    const res = await createExam({
-      variables: {
-        input: {
-          title,
-          subject,
-          description,
-          duration,
-          grade,
+    if (!canContinue) {
+      setCreateError("Хичээл, сэдэв, анги, хугацааг бүрэн бөглөнө үү.");
+      return;
+    }
+
+    try {
+      setCreateError("");
+
+      const res = await createExam({
+        variables: {
+          input: {
+            title: title.trim(),
+            subject,
+            description: uploadedFileName ? `Файл: ${uploadedFileName}` : "",
+            duration,
+            grade,
+          },
         },
-      },
-    });
+      });
 
-    const examId = res.data?.createExam.id;
+      const examId = res.data?.createExam.id;
 
-    if (examId) {
-      router.push(`/teacher/exams/${examId}/edit`);
+      if (examId) {
+        setIsCreateDialogOpen(false);
+        router.push(`/teacher/exams/${examId}/edit`);
+        return;
+      }
+
+      setCreateError("Шинэ шалгалтын ID буцаагдсангүй.");
+    } catch (error) {
+      setCreateError(
+        error instanceof Error
+          ? error.message
+          : "Шинэ шалгалт үүсгэж чадсангүй.",
+      );
     }
   };
 
@@ -84,7 +126,16 @@ export default function TeacherExamsPage() {
           </p>
         </div>
 
-        <Dialog>
+        <Dialog
+          open={isCreateDialogOpen}
+          onOpenChange={(open) => {
+            setIsCreateDialogOpen(open);
+
+            if (!open) {
+              setCreateError("");
+            }
+          }}
+        >
           <DialogTrigger asChild>
             <button className="inline-flex h-14 items-center gap-3 rounded-[22px] bg-[#9E81F0] px-8 text-[18px] font-semibold text-white shadow-[inset_0_-5px_0_rgba(103,79,184,0.38),0_12px_22px_rgba(158,129,240,0.28)] transition hover:translate-y-[-1px] hover:opacity-95">
               <Plus className="h-6 w-6" />
@@ -92,73 +143,140 @@ export default function TeacherExamsPage() {
             </button>
           </DialogTrigger>
 
-          <DialogContent className="rounded-2xl sm:max-w-lg">
-            <DialogHeader>
-              <DialogTitle className="text-lg font-semibold">
+          <DialogContent
+            showCloseButton={false}
+            className="max-w-[calc(100%-2rem)] rounded-[24px] border border-[#E8E2F1] bg-white px-6 py-6 shadow-[0_20px_70px_rgba(28,18,54,0.18)] sm:max-w-[580px]"
+          >
+            <DialogHeader className="gap-0">
+              <DialogTitle className="text-[28px] font-semibold tracking-tight text-[#111111]">
                 Үндсэн мэдээлэл
               </DialogTitle>
             </DialogHeader>
 
-            <div className="space-y-4">
-              <div>
-                <label className="text-sm font-medium">Хичээл</label>
-                <input
-                  className="mt-1 w-full rounded-lg border p-3 text-sm"
-                  value={subject}
-                  onChange={(e) => setSubject(e.target.value)}
-                  placeholder="Хичээл сонгох"
-                />
+            <div className="mt-3 space-y-5">
+              <div className="space-y-2.5">
+                <label className="block text-[16px] font-medium text-[#111111]">
+                  Хичээл
+                </label>
+                <div className="relative">
+                  <select
+                    value={subject}
+                    onChange={(event) => setSubject(event.target.value)}
+                    className={`${fieldClassName} appearance-none pr-14 text-[#1A1623] ${
+                      subject ? "" : "text-[#8E8A94]"
+                    }`}
+                  >
+                    <option value="" disabled>
+                      Хичээл сонгох
+                    </option>
+                    {subjectOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#8E8A94]" />
+                </div>
               </div>
 
-              <div>
-                <label className="text-sm font-medium">Сэдвийн нэр</label>
+              <div className="space-y-2.5">
+                <label className="block text-[16px] font-medium text-[#111111]">
+                  Сэдвийн нэр
+                </label>
                 <input
-                  placeholder="Жишээ: Алгебр Тест-1"
-                  className="mt-1 w-full rounded-lg border p-3 text-sm"
                   value={title}
-                  onChange={(e) => setTitle(e.target.value)}
+                  onChange={(event) => setTitle(event.target.value)}
+                  placeholder="Жишээ: Алгебр Тест-1"
+                  className={fieldClassName}
                 />
               </div>
 
-              <div>
-                <label className="text-sm font-medium">Тодорхойлолт</label>
-                <input
-                  placeholder="Тодорхойлолт"
-                  className="mt-1 w-full rounded-lg border p-3 text-sm"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                />
+              <div className="space-y-2.5">
+                <label className="block text-[16px] font-medium text-[#111111]">
+                  Анги
+                </label>
+                <div className="relative">
+                  <select
+                    value={grade}
+                    onChange={(event) => setGrade(event.target.value)}
+                    className={`${fieldClassName} appearance-none pr-14 ${
+                      grade ? "" : "text-[#8E8A94]"
+                    }`}
+                  >
+                    <option value="" disabled>
+                      Анги сонгох
+                    </option>
+                    {gradeOptions.map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#8E8A94]" />
+                </div>
               </div>
 
-              <div>
-                <label className="text-sm font-medium">Анги</label>
-                <input
-                  className="mt-1 w-full rounded-lg border p-3 text-sm"
-                  placeholder="Анги сонгох"
-                  value={grade}
-                  onChange={(e) => setGrade(e.target.value)}
-                />
+              <div className="space-y-2.5">
+                <label className="block text-[16px] font-medium text-[#111111]">
+                  Файл
+                </label>
+                <label className="flex h-[56px] w-full cursor-pointer items-center gap-3 rounded-[16px] border border-[#E9E0F7] bg-white px-4 text-[16px] text-[#6E6A74] transition hover:border-[#D6C9F6]">
+                  <Upload className="h-5 w-5 text-[#6E6A74]" />
+                  <span>{uploadedFileName || "Файл оруулах"}</span>
+                  <input
+                    type="file"
+                    className="hidden"
+                    onChange={(event) =>
+                      setUploadedFileName(event.target.files?.[0]?.name ?? "")
+                    }
+                  />
+                </label>
               </div>
 
-              <div>
-                <label className="text-sm font-medium">Хугацаа(минут)</label>
-                <input
-                  className="mt-1 w-full rounded-lg border p-3 text-sm"
-                  value={duration}
-                  onChange={(e) => setDuration(Number(e.target.value))}
-                />
+              <div className="space-y-2.5">
+                <label className="block text-[16px] font-medium text-[#111111]">
+                  Хугацаа(минут)
+                </label>
+                <div className="relative">
+                  <select
+                    value={String(duration)}
+                    onChange={(event) =>
+                      setDuration(Number(event.target.value))
+                    }
+                    className={`${fieldClassName} appearance-none pr-14`}
+                  >
+                    {durationOptions.map((option) => (
+                      <option key={option} value={option}>
+                        {option} мин
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#8E8A94]" />
+                </div>
               </div>
             </div>
 
-            <DialogFooter className="mt-4">
-              <button className="px-4 py-2 text-sm">Буцах</button>
+            {createError ? (
+              <p className="mt-4 text-[14px] text-[#D25B56]">{createError}</p>
+            ) : null}
+
+            <div className="-mx-6 -mb-6 mt-8 flex items-center justify-end gap-6 border-t border-[#ECE6F3] px-6 py-5">
               <button
-                className="rounded-full bg-[#9A7BFF] px-5 py-2 text-sm font-semibold text-white"
-                onClick={handleCreateExam}
+                type="button"
+                onClick={() => setIsCreateDialogOpen(false)}
+                className="text-[18px] font-medium text-[#111111] transition hover:text-[#7E66DC]"
               >
-                Үргэлжлүүлэх
+                Буцах
               </button>
-            </DialogFooter>
+              <button
+                type="button"
+                onClick={handleCreateExam}
+                disabled={isCreating}
+                className="inline-flex h-12 items-center justify-center rounded-[20px] bg-[#9E81F0] px-8 text-[18px] font-semibold text-white shadow-[inset_0_-5px_0_rgba(103,79,184,0.32),0_12px_22px_rgba(158,129,240,0.24)] transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-55"
+              >
+                {isCreating ? "Үүсгэж байна..." : "Үргэлжлүүлэх"}
+              </button>
+            </div>
           </DialogContent>
         </Dialog>
       </div>
