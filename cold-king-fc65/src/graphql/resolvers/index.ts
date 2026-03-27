@@ -5,10 +5,12 @@ import { studentMutation } from "./mutations/student.mutations";
 import { teacherMutation } from "./mutations/teacher.mutations";
 import { classRoomQuery } from "./queries/classroom.queries";
 import { examQuery } from "./queries/exam.queries";
+import { studentQuery } from "./queries/student.queries";
 
 export const resolvers = [
 	examQuery,
 	examMutation,
+	studentQuery,
 	studentMutation,
 	teacherMutation,
 	classroomMutation,

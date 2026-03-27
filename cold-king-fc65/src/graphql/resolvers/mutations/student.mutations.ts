@@ -1,7 +1,13 @@
 import { classrooms } from "../../../db/schemas/classroom.schema";
+import { studentExamAnswers } from "../../../db/schemas/student-exam-answer.schema";
+import { studentExamSubmissions } from "../../../db/schemas/student-exam-submission.schema";
 import { students } from "../../../db/schemas/student.schema";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import type { GraphQLContext } from "../../../server";
+import {
+	getAccessibleExamForStudent,
+	loadQuestionsWithChoices,
+} from "../student-exam.helpers";
 
 function getGradeFromClassName(className: string) {
 	const match = className.match(/^(\d{1,2})/);
@@ -74,6 +80,119 @@ export const studentMutation = {
 				})
 				.returning()
 				.get();
+		},
+		submitStudentExam: async (
+			_: unknown,
+			args: {
+				input: {
+					examId: string;
+					answers: {
+						questionId: string;
+						selectedChoiceId?: string | null;
+						answerText?: string | null;
+					}[];
+				};
+			},
+			context: GraphQLContext,
+		) => {
+			const { student, exam } = await getAccessibleExamForStudent(
+				context,
+				args.input.examId,
+			);
+			const existingSubmission = await context.db
+				.select({ id: studentExamSubmissions.id })
+				.from(studentExamSubmissions)
+				.where(
+					and(
+						eq(studentExamSubmissions.studentId, student.id),
+						eq(studentExamSubmissions.examId, exam.id),
+					),
+				)
+				.get();
+
+			if (existingSubmission) {
+				throw new Error("This exam has already been submitted.");
+			}
+
+			const examQuestions = await loadQuestionsWithChoices(context, exam.id);
+			if (examQuestions.length === 0) {
+				throw new Error("This exam has no questions yet.");
+			}
+
+			const inputAnswers = new Map(
+				args.input.answers.map((answer) => [answer.questionId, answer]),
+			);
+			let correctAnswers = 0;
+
+			const submissionId = crypto.randomUUID();
+			const startedAt = Date.now();
+			const submittedAt = Date.now();
+
+			const answerRows = examQuestions.map((question) => {
+				const inputAnswer = inputAnswers.get(question.id);
+				const selectedChoiceId = inputAnswer?.selectedChoiceId ?? null;
+				const trimmedAnswerText = inputAnswer?.answerText?.trim() || null;
+
+				if (
+					selectedChoiceId &&
+					!question.choices.some((choice) => choice.id === selectedChoiceId)
+				) {
+					throw new Error("One of the selected answers is invalid.");
+				}
+
+				const correctChoiceId =
+					question.type === "mcq"
+						? question.choices.find((choice) => choice.isCorrect)?.id ?? null
+						: null;
+				const isCorrect =
+					question.type === "mcq" &&
+					Boolean(selectedChoiceId && correctChoiceId === selectedChoiceId);
+
+				if (isCorrect) {
+					correctAnswers += 1;
+				}
+
+				return {
+					id: crypto.randomUUID(),
+					submissionId,
+					questionId: question.id,
+					selectedChoiceId,
+					answerText: trimmedAnswerText,
+					isCorrect,
+				};
+			});
+
+			const totalQuestions = examQuestions.length;
+			const scorePercent =
+				totalQuestions > 0
+					? Math.round((correctAnswers / totalQuestions) * 100)
+					: 0;
+
+			await context.db.insert(studentExamSubmissions).values({
+				id: submissionId,
+				studentId: student.id,
+				examId: exam.id,
+				startedAt,
+				submittedAt,
+				totalQuestions,
+				correctAnswers,
+				scorePercent,
+			});
+
+			await context.db.insert(studentExamAnswers).values(answerRows);
+
+			return {
+				id: submissionId,
+				examId: exam.id,
+				title: exam.title,
+				subject: exam.subject,
+				grade: exam.grade,
+				duration: exam.duration,
+				questionCount: totalQuestions,
+				correctAnswers,
+				scorePercent,
+				submittedAt,
+			};
 		},
 	},
 };
