@@ -6,7 +6,8 @@ export function makeClient(getToken?: () => Promise<string | null>) {
   const uri =
     process.env.NEXT_PUBLIC_GRAPHQL_URL ||
     process.env.NEXT_PUBLIC_CLOUDFLARE_GRAPHQL_URL ||
-    getCloudflareGraphqlUrl();
+    getCloudflareGraphqlUrl() ||
+    undefined;
   const httpLink = new HttpLink({
     uri,
     credentials: "include",

@@ -31,7 +31,7 @@ export const examMutation = {
                     description: args.input.description ?? null,
                     duration: args.input.duration,
                     grade: args.input.grade,
-                    openStatus: args.input.openStatus ?? false,
+                    openStatus: args.input.openStatus ?? true,
                     createdBy: context.auth.userId,
                 })
                 .returning()
