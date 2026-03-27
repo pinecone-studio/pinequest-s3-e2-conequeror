@@ -1,19 +1,88 @@
 "use client";
 
+import { gql } from "@apollo/client";
+import { useQuery } from "@apollo/client/react";
 import { useMemo, useState } from "react";
 import { TeacherExamCard } from "../_component/TeacherExamCard";
-import { examCards, subjectTabs, type SubjectKey } from "../_data/dashboard";
+import { subjectTabs, type ExamCard, type SubjectKey } from "../_data/dashboard";
+
+type TeacherExamRecord = {
+  id: string;
+  title: string;
+  subject: string;
+  grade: string;
+  duration: number;
+  questionCount: number;
+  classroomName: string | null;
+  scheduledDate: string | null;
+  startTime: string | null;
+};
+
+type TeacherScheduledExamsData = {
+  teacherScheduledExams: TeacherExamRecord[];
+};
+
+const GET_TEACHER_SCHEDULED_EXAMS = gql`
+  query GetTeacherScheduledExams {
+    teacherScheduledExams {
+      id
+      title
+      subject
+      grade
+      duration
+      questionCount
+      classroomName
+      scheduledDate
+      startTime
+    }
+  }
+`;
+
+function formatScheduledDate(date: string | null) {
+  if (!date) {
+    return "-";
+  }
+
+  const [year, month, day] = date.split("-");
+  if (!year || !month || !day) {
+    return date;
+  }
+
+  return `${month}.${day}.${year}`;
+}
+
+function mapExamToCard(exam: TeacherExamRecord): ExamCard {
+  return {
+    id: exam.id,
+    title: exam.classroomName || exam.grade,
+    topic: exam.title,
+    grade: exam.grade,
+    date: formatScheduledDate(exam.scheduledDate),
+    startTime: exam.startTime || "--:--",
+    duration: exam.duration,
+    taskCount: exam.questionCount,
+    subject: exam.subject as Exclude<SubjectKey, "all">,
+    classroomName: exam.classroomName,
+  };
+}
 
 export default function TeacherDashboardPage() {
   const [activeTab, setActiveTab] = useState<SubjectKey>("all");
+  const { data } = useQuery<TeacherScheduledExamsData>(
+    GET_TEACHER_SCHEDULED_EXAMS,
+  );
 
+  const cards = useMemo(
+    () => (data?.teacherScheduledExams ?? []).map(mapExamToCard),
+    [data],
+  );
   const filteredCards = useMemo(() => {
     if (activeTab === "all") {
-      return examCards;
+      return cards;
     }
 
-    return examCards.filter((exam) => exam.subject === activeTab);
-  }, [activeTab]);
+    return cards.filter((exam) => exam.subject === activeTab);
+  }, [activeTab, cards]);
 
   return (
     <section className="space-y-8">

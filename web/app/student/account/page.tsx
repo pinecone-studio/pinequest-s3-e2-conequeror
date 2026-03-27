@@ -4,6 +4,7 @@ import { gql } from "@apollo/client";
 import { useMutation, useQuery } from "@apollo/client/react";
 import { CheckCheck, Clock3, Info, Loader2, PenLine } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { cloudflareProfileSyncedEvent } from "@/components/auth/cloudflare-student-sync";
 import ExamCard from "../_component/ExamCard";
 import {
   getStudentExamHeader,
@@ -18,6 +19,8 @@ type AvailableExam = {
   grade: string;
   duration: number;
   questionCount: number;
+  scheduledDate: string;
+  startTime: string;
 };
 
 type StudentExamQuestion = {
@@ -75,6 +78,8 @@ const GET_STUDENT_EXAM_DETAIL = gql`
       subject
       description
       grade
+      scheduledDate
+      startTime
       duration
       questionCount
       questions {
@@ -118,7 +123,10 @@ export default function StudentAccountPage() {
   );
   const [secondsLeft, setSecondsLeft] = useState(0);
   const [focusedQuestion, setFocusedQuestion] = useState(1);
-  const [answers, setAnswers] = useState<Record<string, StudentAnswerDraft>>({});
+  const [answers, setAnswers] = useState<Record<string, StudentAnswerDraft>>(
+    {},
+  );
+  const [examStartedAt, setExamStartedAt] = useState<number | null>(null);
   const [submitError, setSubmitError] = useState("");
 
   const activeExamId = startedExamId ?? selectedExamId;
@@ -157,6 +165,21 @@ export default function StudentAccountPage() {
 
     return () => window.clearInterval(timer);
   }, [startedExamId]);
+
+  useEffect(() => {
+    const handleProfileSynced = () => {
+      void refetchAvailableExams();
+    };
+
+    window.addEventListener(cloudflareProfileSyncedEvent, handleProfileSynced);
+
+    return () => {
+      window.removeEventListener(
+        cloudflareProfileSyncedEvent,
+        handleProfileSynced,
+      );
+    };
+  }, [refetchAvailableExams]);
 
   const handleFocusQuestion = (order: number) => {
     setFocusedQuestion(order);
@@ -198,6 +221,7 @@ export default function StudentAccountPage() {
     setSubmitError("");
     setSubmittedExamName(null);
     setStartedExamId(activeExam.id);
+    setExamStartedAt(Date.now());
     setSecondsLeft(activeExam.duration * 60);
     setFocusedQuestion(activeExam.questions[0]?.order ?? 1);
     setAnswers({});
@@ -215,6 +239,7 @@ export default function StudentAccountPage() {
         variables: {
           input: {
             examId: activeExam.id,
+            startedAt: examStartedAt,
             answers: activeExam.questions.map((question) => ({
               questionId: question.id,
               selectedChoiceId: answers[question.id]?.selectedChoiceId ?? null,
@@ -225,9 +250,12 @@ export default function StudentAccountPage() {
       });
 
       await refetchAvailableExams();
-      setSubmittedExamName(getStudentExamHeader(activeExam.subject, activeExam.title));
+      setSubmittedExamName(
+        getStudentExamHeader(activeExam.subject, activeExam.title),
+      );
       setStartedExamId(null);
       setSelectedExamId(null);
+      setExamStartedAt(null);
       setSecondsLeft(0);
       setFocusedQuestion(1);
       setAnswers({});
@@ -304,7 +332,8 @@ export default function StudentAccountPage() {
                 const isFocused = focusedQuestion === order;
                 const answerDraft = question ? answers[question.id] : undefined;
                 const isAnswered = Boolean(
-                  answerDraft?.selectedChoiceId || answerDraft?.answerText?.trim(),
+                  answerDraft?.selectedChoiceId ||
+                  answerDraft?.answerText?.trim(),
                 );
 
                 return (
@@ -457,7 +486,10 @@ export default function StudentAccountPage() {
               <div className="flex flex-col gap-7">
                 <div className="w-full">
                   <h1 className="text-[24px] leading-[1.05] font-semibold tracking-[-0.03em] text-[#111111]">
-                    {getStudentExamPresentation(activeExam.subject).subjectLabel}
+                    {
+                      getStudentExamPresentation(activeExam.subject)
+                        .subjectLabel
+                    }
                   </h1>
 
                   <p className="mt-2 text-[18px] font-medium text-[#4B4658]">
@@ -550,6 +582,8 @@ export default function StudentAccountPage() {
                 grade={exam.grade}
                 minutes={exam.duration}
                 exercises={exam.questionCount}
+                scheduledDate={exam.scheduledDate}
+                startTime={exam.startTime}
                 date="Идэвхтэй"
                 bg={presentation.bg}
                 iconBg={presentation.iconBg}

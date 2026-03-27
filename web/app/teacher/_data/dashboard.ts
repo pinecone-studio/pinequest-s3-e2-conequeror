@@ -1,4 +1,11 @@
-export type SubjectKey = "all" | "social" | "civics";
+export type SubjectKey =
+  | "all"
+  | "social"
+  | "civics"
+  | "math"
+  | "english"
+  | "chemistry"
+  | "physics";
 
 export type ExamCard = {
   id: string;
@@ -10,15 +17,18 @@ export type ExamCard = {
   duration: number;
   taskCount: number;
   subject: Exclude<SubjectKey, "all">;
+  classroomName?: string | null;
 };
 
 export type StudentResult = {
-  id: number;
+  id: string;
+  studentId: string;
   name: string;
   section: string;
   score: string;
-  submittedAt: string;
+  submittedAt: number;
   durationMinutes: number;
+  percent: number;
 };
 
 export type SubjectCardPalette = {
@@ -31,151 +41,76 @@ export const subjectTabs: { key: SubjectKey; label: string }[] = [
   { key: "all", label: "Бүгд" },
   { key: "social", label: "Нийгэм" },
   { key: "civics", label: "Иргэний боловсрол" },
+  { key: "math", label: "Математик" },
+  { key: "english", label: "Англи хэл" },
+  { key: "chemistry", label: "Хими" },
+  { key: "physics", label: "Физик" },
 ];
 
-const subjectCardPaletteSequence: SubjectCardPalette[] = [
-  {
+const subjectCardPaletteSequence: Record<
+  Exclude<SubjectKey, "all">,
+  SubjectCardPalette
+> = {
+  social: {
     cardBackground: "#DCD9FFB3",
     borderColor: "#C8C2FFB3",
     iconBackground: "#CDC7FFB3",
   },
-  {
+  civics: {
     cardBackground: "#D4EBFFB3",
     borderColor: "#B9DEFFB3",
     iconBackground: "#BFE0FFB3",
   },
-  {
+  math: {
     cardBackground: "#F8DBFDB3",
     borderColor: "#F1C2FBB3",
     iconBackground: "#F2C8FAB3",
   },
-  {
+  english: {
     cardBackground: "#E7F699B3",
     borderColor: "#D4E66AB3",
     iconBackground: "#DCEE78B3",
   },
-];
-
-const orderedSubjectKeys = subjectTabs
-  .filter(
-    (
-      tab,
-    ): tab is {
-      key: Exclude<SubjectKey, "all">;
-      label: string;
-    } => tab.key !== "all",
-  )
-  .map((tab) => tab.key);
+  chemistry: {
+    cardBackground: "#FFE5D6",
+    borderColor: "#FFD2B9",
+    iconBackground: "#FFD9C7",
+  },
+  physics: {
+    cardBackground: "#E0F1F6",
+    borderColor: "#C6E5EE",
+    iconBackground: "#CFEAF2",
+  },
+};
 
 export function getSubjectCardPalette(subject: string): SubjectCardPalette {
-  const paletteIndex = orderedSubjectKeys.indexOf(
-    subject as Exclude<SubjectKey, "all">,
-  );
-  const normalizedIndex = paletteIndex >= 0 ? paletteIndex : 0;
-
   return (
     subjectCardPaletteSequence[
-      normalizedIndex % subjectCardPaletteSequence.length
-    ] ?? subjectCardPaletteSequence[0]
+      (subject as Exclude<SubjectKey, "all">) || "social"
+    ] ?? subjectCardPaletteSequence.social
   );
 }
 
-export const examCards: ExamCard[] = [
-  {
-    id: "soc-10-a",
-    title: "Нийгэм Ухаан",
-    topic: "Соёл",
-    grade: "10-р анги",
-    date: "03.25.2026",
-    startTime: "13:30",
-    duration: 60,
-    taskCount: 30,
-    subject: "social",
-  },
-  {
-    id: "soc-10-b",
-    title: "Нийгэм Ухаан",
-    topic: "Соёл",
-    grade: "9-р анги",
-    date: "03.25.2026",
-    startTime: "13:30",
-    duration: 60,
-    taskCount: 30,
-    subject: "social",
-  },
-  {
-    id: "soc-10-c",
-    title: "Нийгэм Ухаан",
-    topic: "Соёл",
-    grade: "11-р анги",
-    date: "03.25.2026",
-    startTime: "13:30",
-    duration: 60,
-    taskCount: 30,
-    subject: "social",
-  },
-  {
-    id: "soc-10-d",
-    title: "Нийгэм Ухаан",
-    topic: "Соёл",
-    grade: "12-р анги",
-    date: "03.25.2026",
-    startTime: "13:30",
-    duration: 60,
-    taskCount: 30,
-    subject: "social",
-  },
-  {
-    id: "civ-9-a",
-    title: "Иргэний ёс зүй",
-    topic: "Соёл",
-    grade: "9-р анги",
-    date: "03.28.2026",
-    startTime: "13:30",
-    duration: 45,
-    taskCount: 24,
-    subject: "civics",
-  },
-  {
-    id: "civ-11-a",
-    title: "Иргэний ёс зүй",
-    topic: "Соёл",
-    grade: "11-р анги",
-    date: "04.01.2026",
-    startTime: "13:30",
-    duration: 50,
-    taskCount: 28,
-    subject: "civics",
-  },
-];
+export function getSubjectDisplayLabel(subject: string) {
+  if (subject === "civics") {
+    return "Иргэний боловсрол";
+  }
 
-export const studentResultsByExam: Record<string, StudentResult[]> = {
-  "soc-10-a": [
-    { id: 1, name: "Самбуудорж Ануужин", section: "10-1", score: "23/30", submittedAt: "2/8/2025", durationMinutes: 40 },
-    { id: 2, name: "Ц.Номуунаа", section: "10-1", score: "23/30", submittedAt: "2/8/2025", durationMinutes: 58 },
-    { id: 3, name: "Б.Тэмүүлэн", section: "10-2", score: "21/30", submittedAt: "2/8/2025", durationMinutes: 55 },
-    { id: 4, name: "Г.Мишээл", section: "10-2", score: "26/30", submittedAt: "2/8/2025", durationMinutes: 47 },
-    { id: 5, name: "Э.Сондор", section: "10-3", score: "20/30", submittedAt: "2/8/2025", durationMinutes: 59 },
-    { id: 6, name: "М.Марал", section: "10-1", score: "28/30", submittedAt: "2/8/2025", durationMinutes: 42 },
-    { id: 7, name: "Ж.Номин", section: "10-3", score: "24/30", submittedAt: "2/8/2025", durationMinutes: 51 },
-  ],
-  "soc-10-b": [
-    { id: 1, name: "Д.Анударь", section: "9-1", score: "25/30", submittedAt: "2/9/2025", durationMinutes: 44 },
-    { id: 2, name: "Н.Төгөлдөр", section: "9-1", score: "19/30", submittedAt: "2/9/2025", durationMinutes: 57 },
-    { id: 3, name: "О.Ивээл", section: "9-2", score: "27/30", submittedAt: "2/9/2025", durationMinutes: 46 },
-  ],
-  "soc-10-c": [
-    { id: 1, name: "А.Саруул", section: "11-1", score: "24/30", submittedAt: "2/10/2025", durationMinutes: 43 },
-    { id: 2, name: "Ч.Амин", section: "11-2", score: "22/30", submittedAt: "2/10/2025", durationMinutes: 56 },
-  ],
-  "soc-10-d": [
-    { id: 1, name: "П.Мөнхжин", section: "12-1", score: "18/30", submittedAt: "2/11/2025", durationMinutes: 60 },
-    { id: 2, name: "С.Мөнгөнзул", section: "12-2", score: "29/30", submittedAt: "2/11/2025", durationMinutes: 45 },
-  ],
-  "civ-9-a": [
-    { id: 1, name: "Ц.Эрхэс", section: "9-3", score: "20/24", submittedAt: "3/1/2025", durationMinutes: 39 },
-  ],
-  "civ-11-a": [
-    { id: 1, name: "Э.Наран", section: "11-3", score: "25/28", submittedAt: "3/3/2025", durationMinutes: 48 },
-  ],
-};
+  if (subject === "math") {
+    return "Математик";
+  }
+
+  if (subject === "english") {
+    return "Англи хэл";
+  }
+
+  if (subject === "chemistry") {
+    return "Хими";
+  }
+
+  if (subject === "physics") {
+    return "Физик";
+  }
+
+  return "Нийгэм";
+}

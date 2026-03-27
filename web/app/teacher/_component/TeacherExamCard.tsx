@@ -2,6 +2,7 @@ import { Clock3, FileText, PencilLine, Users } from "lucide-react";
 import Link from "next/link";
 import type { CSSProperties } from "react";
 import {
+  getSubjectDisplayLabel,
   getSubjectCardPalette,
   type ExamCard,
   type SubjectKey,
@@ -27,27 +28,21 @@ type TeacherExamCardProps = {
   card: ExamCard;
   href: string;
   showActionButton?: boolean;
+  onActionClick?: (card: ExamCard) => void;
 };
 
 export function TeacherExamCard({
   card,
   href,
   showActionButton = false,
+  onActionClick,
 }: TeacherExamCardProps) {
   const palette = getSubjectCardPalette(card.subject);
-  const SubjectIcon = card.subject === "social" ? FileText : Users;
+  const SubjectIcon =
+    card.subject === "social" || card.subject === "civics" ? FileText : Users;
 
-  return (
-    <Link
-      href={href}
-      className={`group rounded-2xl border px-5 py-5 transition hover:-translate-y-0.5 hover:shadow-md ${
-        showActionButton ? "flex min-h-[284px] flex-col" : "block"
-      }`}
-      style={{
-        backgroundColor: palette.cardBackground,
-        borderColor: palette.borderColor,
-      }}
-    >
+  const cardContent = (
+    <>
       <div
         className="flex h-11 w-11 items-center justify-center rounded-xl"
         style={{ backgroundColor: palette.iconBackground }}
@@ -60,7 +55,9 @@ export function TeacherExamCard({
           {card.title}
           <span className="font-normal"> /{card.topic}/</span>
         </h2>
-        <p className="text-sm text-[#6B6B6B]">{card.grade}</p>
+        <p className="text-sm text-[#6B6B6B]">
+          {card.classroomName || card.grade}
+        </p>
       </div>
 
       <div className="mt-5 flex gap-2 text-xs">
@@ -73,22 +70,54 @@ export function TeacherExamCard({
           {card.taskCount} даалгавар
         </span>
       </div>
+    </>
+  );
 
-      {showActionButton ? (
+  if (showActionButton) {
+    return (
+      <div
+        className="group flex min-h-[284px] flex-col rounded-2xl border px-5 py-5 transition hover:-translate-y-0.5 hover:shadow-md"
+        style={{
+          backgroundColor: palette.cardBackground,
+          borderColor: palette.borderColor,
+        }}
+      >
+        <Link href={href} className="block">
+          {cardContent}
+        </Link>
+
         <div className="mt-auto pt-6">
-          <span
+          <button
+            type="button"
+            onClick={() => onActionClick?.(card)}
             className="flex h-11 w-full items-center justify-center rounded-full text-[16px] font-semibold text-white"
             style={getActionButtonStyles(card.subject)}
           >
             Шалгалт авах
-          </span>
+          </button>
         </div>
+      </div>
+    );
+  }
+
+  return (
+    <Link
+      href={href}
+      className="group block rounded-2xl border px-5 py-5 transition hover:-translate-y-0.5 hover:shadow-md"
+      style={{
+        backgroundColor: palette.cardBackground,
+        borderColor: palette.borderColor,
+      }}
+    >
+      {cardContent}
+      {showActionButton ? (
+        <></>
       ) : (
         <>
           <p className="mt-4 text-sm text-[#111111]">
-            Эхлэх хугацаа-/{card.startTime}/
+            {getSubjectDisplayLabel(card.subject)} / {card.startTime || "--:--"}
           </p>
-          <p className="mt-3 text-xs text-[#6D6778]">{card.date}</p>
+          <p className="mt-3 text-xs text-[#6D6778]">{card.date || "-"}</p>
         </>
       )}
     </Link>

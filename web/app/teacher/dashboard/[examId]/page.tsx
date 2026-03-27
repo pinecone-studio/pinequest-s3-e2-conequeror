@@ -1,32 +1,69 @@
 "use client";
 
+import { gql } from "@apollo/client";
+import { useQuery } from "@apollo/client/react";
 import { ChevronDown, ChevronLeft, PencilLine, Search } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useMemo, useState } from "react";
-import { examCards, studentResultsByExam } from "../../_data/dashboard";
 
-function parseScore(score: string) {
-  const [earnedRaw, totalRaw] = score.split("/");
-  const earned = Number.parseInt(earnedRaw, 10);
-  const total = Number.parseInt(totalRaw, 10);
-
-  return {
-    earned: Number.isFinite(earned) ? earned : 0,
-    total: Number.isFinite(total) ? total : 0,
+type TeacherExamAnalyticsData = {
+  teacherExamAnalytics: {
+    exam: {
+      id: string;
+      title: string;
+    };
+    totalStudents: number;
+    students: {
+      id: string;
+      studentId: string;
+      name: string;
+      section: string;
+      score: string;
+      percent: number;
+      submittedAt: number;
+      durationMinutes: number;
+    }[];
   };
-}
+};
+
+const GET_TEACHER_EXAM_ANALYTICS = gql`
+  query GetTeacherExamAnalytics($examId: String!) {
+    teacherExamAnalytics(examId: $examId) {
+      totalStudents
+      exam {
+        id
+        title
+      }
+      students {
+        id
+        studentId
+        name
+        section
+        score
+        percent
+        submittedAt
+        durationMinutes
+      }
+    }
+  }
+`;
 
 export default function TeacherExamAnalysisPage() {
   const params = useParams<{ examId: string }>();
   const examId = params.examId;
-  const exam = examCards.find((item) => item.id === examId) ?? examCards[0];
-  const students = useMemo(() => {
-    return studentResultsByExam[exam.id] ?? [];
-  }, [exam.id]);
+  const { data } = useQuery<TeacherExamAnalyticsData>(
+    GET_TEACHER_EXAM_ANALYTICS,
+    {
+      variables: { examId },
+      skip: !examId,
+    },
+  );
   const [query, setQuery] = useState("");
   const [section, setSection] = useState("all");
 
+  const exam = data?.teacherExamAnalytics.exam;
+  const students = data?.teacherExamAnalytics.students ?? [];
   const sections = useMemo(() => {
     return Array.from(new Set(students.map((student) => student.section)));
   }, [students]);
@@ -61,8 +98,11 @@ export default function TeacherExamAnalysisPage() {
               Шалгалтын анализ
             </h1>
             <p className="mt-1 text-[17px] text-[#5F5C66]">
-              Нийт орсон сурагч: {students.length}
+              Нийт орсон сурагч: {data?.teacherExamAnalytics.totalStudents ?? 0}
             </p>
+            {exam ? (
+              <p className="mt-1 text-[15px] text-[#8B8793]">{exam.title}</p>
+            ) : null}
           </div>
 
           <div className="flex flex-col gap-4 sm:flex-row">
@@ -118,17 +158,10 @@ export default function TeacherExamAnalysisPage() {
               <span className="font-medium">{student.name}</span>
               <span>{student.section}</span>
               <span>{student.score}</span>
-              <span>
-                {(() => {
-                  const { earned, total } = parseScore(student.score);
-                  const percent = total > 0 ? Math.round((earned / total) * 100) : 0;
-
-                  return `${percent}%`;
-                })()}
-              </span>
+              <span>{student.percent}%</span>
               <span>{student.durationMinutes} мин</span>
               <Link
-                href={`/teacher/dashboard/${exam.id}/students/${student.id}`}
+                href={`/teacher/dashboard/${examId}/students/${student.studentId}`}
                 className="flex justify-center text-[#A5AEC5] transition hover:text-[#8B6FF7]"
                 aria-label={`${student.name} шалгалтыг нээх`}
               >

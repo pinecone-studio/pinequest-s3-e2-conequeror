@@ -34,8 +34,7 @@ export async function getAccessibleExamForStudent(
 		.where(
 			and(
 				eq(exams.id, examId),
-				eq(exams.grade, student.grade),
-				eq(exams.createdBy, student.teacherId),
+				eq(exams.classroomId, student.classroomId),
 				eq(exams.openStatus, true),
 			),
 		)

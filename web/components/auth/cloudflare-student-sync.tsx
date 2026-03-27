@@ -8,6 +8,8 @@ import {
 } from "@/lib/cloudflare-sync";
 import type { UserRole } from "@/lib/auth-role";
 
+export const cloudflareProfileSyncedEvent = "pinequest-cloudflare-profile-synced";
+
 type CloudflareStudentSyncProps = {
   email: string;
   firstName: string;
@@ -104,6 +106,11 @@ export function CloudflareStudentSync({
         retryCountRef.current = 0;
         if (!cancelled) {
           setStatus(`Cloudflare ${role} profile synced.`);
+          window.dispatchEvent(
+            new CustomEvent(cloudflareProfileSyncedEvent, {
+              detail: { role },
+            }),
+          );
         }
       } catch (error) {
         const message =

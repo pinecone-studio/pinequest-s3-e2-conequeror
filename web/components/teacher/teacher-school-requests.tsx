@@ -73,8 +73,12 @@ export function TeacherSchoolRequests() {
 
   const { data: myClassroomData,
     // loading: myClassroomLoading, 
-    error: myClassroomError
-  } = useQuery<myClassroomData>(getMyClassrooms)
+    error: myClassroomError,
+    refetch: refetchClassrooms,
+  } = useQuery<myClassroomData>(getMyClassrooms, {
+    skip: !isLoaded || !isSignedIn,
+    fetchPolicy: "network-only",
+  })
 
   useEffect(() => {
     console.log(myClassroomData)
@@ -107,7 +111,7 @@ export function TeacherSchoolRequests() {
         setStatusMessage(message);
       }
     })();
-  }, [getToken, isLoaded, isSignedIn]);
+  }, [getToken, isLoaded, isSignedIn, myClassroomData]);
 
 
   const handleCreateClassroom = async () => {
@@ -143,7 +147,8 @@ export function TeacherSchoolRequests() {
       setShowClassCode(true)
 
       setClassName("");
-      await loadClassroomData();
+      const refreshed = await refetchClassrooms();
+      setClassrooms(refreshed.data?.classroomsByTeacher ?? []);
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Failed to create classroom.";
