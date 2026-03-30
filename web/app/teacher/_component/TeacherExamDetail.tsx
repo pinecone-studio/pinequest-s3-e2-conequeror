@@ -5,7 +5,7 @@ import type { Reference } from "@apollo/client/cache";
 import { useMutation, useQuery } from "@apollo/client/react";
 import Link from "next/link";
 import { ChevronLeft, PencilLine, Plus, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import {
   Dialog,
@@ -13,6 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { MathInline } from "@/components/math";
 import { getApolloErrorMessage } from "@/lib/apollo-error";
 import { getSubjectDisplayLabel } from "../_data/dashboard";
 
@@ -165,6 +166,56 @@ function formatScheduledDate(date: string | null) {
   }
 
   return `${month}.${day}.${year}`;
+}
+
+function hasMathContent(value: string) {
+  return /\$[^$]+\$|(\\[a-zA-Z]+)|\^|_/.test(value);
+}
+
+function renderMathText(value: string) {
+  if (!value.trim()) {
+    return null;
+  }
+
+  const formulaMatches = [...value.matchAll(/\$([^$]+)\$/g)];
+
+  if (formulaMatches.length > 0) {
+    const nodes: ReactNode[] = [];
+    let cursor = 0;
+
+    formulaMatches.forEach((match, index) => {
+      const [fullMatch, latex] = match;
+      const start = match.index ?? 0;
+      const plainText = value.slice(cursor, start);
+
+      if (plainText) {
+        nodes.push(<span key={`text-${index}`}>{plainText}</span>);
+      }
+
+      nodes.push(
+        <MathInline
+          key={`math-${index}`}
+          math={latex}
+          className="mx-1 align-middle text-[1em] text-[#27242F]"
+        />,
+      );
+
+      cursor = start + fullMatch.length;
+    });
+
+    const trailingText = value.slice(cursor);
+    if (trailingText) {
+      nodes.push(<span key="text-trailing">{trailingText}</span>);
+    }
+
+    return nodes;
+  }
+
+  if (hasMathContent(value)) {
+    return <MathInline math={value} className="align-middle text-[1em] text-[#27242F]" />;
+  }
+
+  return value;
 }
 
 export function TeacherExamDetail({ examId }: TeacherExamDetailProps) {
@@ -618,7 +669,7 @@ export function TeacherExamDetail({ examId }: TeacherExamDetailProps) {
               >
                 <div className="flex items-start justify-between gap-4">
                   <h2 className="text-[18px] font-semibold text-[#1F1B27]">
-                    {displayOrder}. {question.question}
+                    {displayOrder}. {renderMathText(question.question)}
                   </h2>
                   <span className="shrink-0 pt-0.5 text-[15px] font-medium text-[#2C2933]">
                     1 оноо
@@ -650,7 +701,7 @@ export function TeacherExamDetail({ examId }: TeacherExamDetailProps) {
                             }`}
                           >
                             <span className="text-[15px] font-medium text-[#27242F]">
-                              {option.label}. {option.text}
+                              {option.label}. {renderMathText(option.text)}
                             </span>
                           </div>
                         </div>
