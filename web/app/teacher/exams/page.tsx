@@ -203,7 +203,6 @@ export default function TeacherExamsPage() {
   const [scheduleError, setScheduleError] = useState("");
   const [schedulingExam, setSchedulingExam] = useState<ExamCard | null>(null);
   const [scheduleGrade, setScheduleGrade] = useState("");
-  const [examGrade, setExamGrade] = useState("")
   const [scheduleDate, setScheduleDate] = useState("");
   const [scheduleStartTime, setScheduleStartTime] = useState("");
 
@@ -280,7 +279,7 @@ export default function TeacherExamsPage() {
     ? getApolloErrorMessage(classroomsError, "Ангиудыг ачаалж чадсангүй.")
     : "";
   const canContinue = Boolean(
-    subject && title.trim() && examGrade && duration > 0,
+    subject && title.trim() && selectedCreateGrade && duration > 0,
   );
 
   const handleCreateExam = async () => {
@@ -454,13 +453,29 @@ export default function TeacherExamsPage() {
                   <label className="block text-[16px] font-medium text-[#111111]">
                     Анги
                   </label>
-                  <div>
-                    <input
-                      className="border w-full h-10 rounded-lg"
-                      placeholder="angi"
-                      value={examGrade}
-                      onChange={(e) => setExamGrade(e.target.value)}
-                    />
+                  <div className="relative">
+                    <select
+                      value={selectedCreateClassroomId}
+                      onChange={(event) =>
+                        setSelectedCreateClassroomId(event.target.value)
+                      }
+                      disabled={!hasCreateClassroomOptions}
+                      className={`${fieldClassName} appearance-none pr-14 ${
+                        selectedCreateClassroomId ? "" : "text-[#8E8A94]"
+                      } ${!hasCreateClassroomOptions ? "cursor-not-allowed opacity-60" : ""}`}
+                    >
+                      <option value="" disabled>
+                        {hasCreateClassroomOptions
+                          ? "Анги сонгох"
+                          : "Анги олдсонгүй"}
+                      </option>
+                      {classrooms.map((classroom) => (
+                        <option key={classroom.id} value={classroom.id}>
+                          {classroom.className}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#8E8A94]" />
                   </div>
                 </div>
 
