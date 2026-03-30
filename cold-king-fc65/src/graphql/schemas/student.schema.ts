@@ -54,8 +54,6 @@ export const studentTypeDefs = gql`
 		scheduledDate: String
 		startTime: String
 		duration: Int!
-		scheduledDate: String
-		startTime: String
 		questionCount: Int!
 		questions: [StudentExamQuestion!]!
 	}
