@@ -37,7 +37,7 @@ type TeacherExamDetailData = {
     questions: {
       id: string;
       type: "mcq" | "open" | "short";
-      prompt: string;
+      question: string;
       order: number;
       correctChoiceId: string | null;
       choices: {
@@ -112,7 +112,7 @@ const GET_TEACHER_EXAM_DETAIL = gql`
       questions {
         id
         type
-        prompt
+        question
         order
         correctChoiceId
         choices {
@@ -618,7 +618,7 @@ export function TeacherExamDetail({ examId }: TeacherExamDetailProps) {
               >
                 <div className="flex items-start justify-between gap-4">
                   <h2 className="text-[18px] font-semibold text-[#1F1B27]">
-                    {displayOrder}. {question.prompt}
+                    {displayOrder}. {question.question}
                   </h2>
                   <span className="shrink-0 pt-0.5 text-[15px] font-medium text-[#2C2933]">
                     1 оноо
