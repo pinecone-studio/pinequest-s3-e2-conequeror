@@ -18,13 +18,22 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { FormulaKeyboardDialog } from "@/components/math/formula-keyboard-dialog";
+import { MathBlock, MathInline } from "@/components/math";
 import { getApolloErrorMessage } from "@/lib/apollo-error";
 
 type QuestionType = "mcq" | "open" | "short";
@@ -210,6 +219,10 @@ const insertMenuOptions = [
 ] as const;
 type InsertMenuKey = (typeof insertMenuOptions)[number]["key"];
 type MediaInsertKey = Extract<InsertMenuKey, "image" | "video">;
+type FormulaTarget =
+  | { type: "question" }
+  | { type: "choice"; choiceId: string }
+  | null;
 
 const fieldClassName =
   "h-[56px] w-full rounded-[18px] border border-[#E8E2F1] bg-white px-4 text-[18px] text-[#1A1623] outline-none transition placeholder:text-[#8E8A94] focus:border-[#B59AF8] focus:ring-4 focus:ring-[#B59AF8]/15";
@@ -342,6 +355,107 @@ function getQuestionTypeLabel(type: QuestionType) {
   return "Бичих";
 }
 
+function hasMathPreview(value: string) {
+  return /\$[^$]+\$|(\\[a-zA-Z]+)|\^|_/.test(value);
+}
+
+function splitLegacyFormulaText(value: string) {
+  const match = value.match(
+    /^(\\[a-zA-Z]+(?:_[^\s{}]+)?(?:\^[^\s{}]+)?(?:\s+\d+(?:\.\d+)?)?)(.*)$/s,
+  );
+
+  if (!match) {
+    return null;
+  }
+
+  const [, formula, rest] = match;
+  return {
+    formula: formula.trim(),
+    rest,
+  };
+}
+
+function renderPreviewContent(value: string) {
+  if (!value.trim()) {
+    return null;
+  }
+
+  const formulaMatches = [...value.matchAll(/\$([^$]+)\$/g)];
+
+  if (formulaMatches.length > 0) {
+    const nodes: ReactNode[] = [];
+    let cursor = 0;
+
+    formulaMatches.forEach((match, index) => {
+      const [fullMatch, latex] = match;
+      const start = match.index ?? 0;
+      const plainText = value.slice(cursor, start);
+
+      if (plainText) {
+        nodes.push(
+          <span
+            key={`text-${index}`}
+            className="font-sans whitespace-pre-wrap text-[18px] leading-8 text-[#1A1623]"
+          >
+            {plainText}
+          </span>,
+        );
+      }
+
+      nodes.push(
+        <MathInline
+          key={`math-${index}`}
+          math={latex}
+          className="mx-1 align-middle text-[20px] text-[#1A1623]"
+        />,
+      );
+
+      cursor = start + fullMatch.length;
+    });
+
+    const trailingText = value.slice(cursor);
+    if (trailingText) {
+      nodes.push(
+        <span
+          key="text-trailing"
+          className="font-sans whitespace-pre-wrap text-[18px] leading-8 text-[#1A1623]"
+        >
+          {trailingText}
+        </span>,
+      );
+    }
+
+    return <div>{nodes}</div>;
+  }
+
+  const legacyFormulaSplit = splitLegacyFormulaText(value);
+  if (legacyFormulaSplit) {
+    return (
+      <div>
+        <MathInline
+          math={legacyFormulaSplit.formula}
+          className="mr-1 align-middle text-[20px] text-[#1A1623]"
+        />
+        {legacyFormulaSplit.rest ? (
+          <span className="font-sans whitespace-pre-wrap text-[18px] leading-8 text-[#1A1623]">
+            {legacyFormulaSplit.rest}
+          </span>
+        ) : null}
+      </div>
+    );
+  }
+
+  if (hasMathPreview(value)) {
+    return <MathBlock math={value} className="text-[20px] text-[#1A1623]" />;
+  }
+
+  return (
+    <p className="font-sans whitespace-pre-wrap text-[18px] leading-8 text-[#1A1623]">
+      {value}
+    </p>
+  );
+}
+
 export default function TeacherExamEditPage() {
   const params = useParams<{ examId: string }>();
   const searchParams = useSearchParams();
@@ -375,6 +489,10 @@ export default function TeacherExamEditPage() {
     string | null
   >(null);
   const [isTypeMenuOpen, setIsTypeMenuOpen] = useState(false);
+  const [formulaTarget, setFormulaTarget] = useState<FormulaTarget>(null);
+  const [editingQuestionId, setEditingQuestionId] = useState<string | null>(
+    null,
+  );
   const insertMenuRef = useRef<HTMLDivElement | null>(null);
   const choiceInsertMenuRef = useRef<HTMLDivElement | null>(null);
   const typeMenuRef = useRef<HTMLDivElement | null>(null);
@@ -445,6 +563,15 @@ export default function TeacherExamEditPage() {
   const totalPoints = useMemo(() => {
     return questions.reduce((sum, question) => sum + question.points, 0);
   }, [questions]);
+  const normalizedActiveChoices = useMemo(
+    () =>
+      activeQuestion ? normalizeQuestionChoices(activeQuestion.choices) : [],
+    [activeQuestion],
+  );
+  const deferredQuestionPreview = useDeferredValue(
+    activeQuestion?.question ?? "",
+  );
+  const deferredChoicePreviews = useDeferredValue(normalizedActiveChoices);
 
   const updateQuestions = (
     updater: (current: QuestionDraft[]) => QuestionDraft[],
@@ -537,6 +664,56 @@ export default function TeacherExamEditPage() {
     setIsInsertMenuOpen(false);
     setChoiceInsertMenuTargetId(null);
     setIsTypeMenuOpen(false);
+  };
+
+  const formulaInitialLatex = useMemo(() => {
+    if (!activeQuestion || !formulaTarget) {
+      return "";
+    }
+
+    if (formulaTarget.type === "question") {
+      return activeQuestion.question;
+    }
+
+    return (
+      activeQuestion.choices.find(
+        (choice) => choice.id === formulaTarget.choiceId,
+      )?.text ?? ""
+    );
+  }, [activeQuestion, formulaTarget]);
+
+  const handleFormulaInsert = (latex: string) => {
+    const trimmedLatex = `$${latex.trim()}$`;
+
+    if (trimmedLatex === "$$" || !formulaTarget) {
+      return;
+    }
+
+    if (formulaTarget.type === "question") {
+      updateActiveQuestion((question) => ({
+        ...question,
+        question: question.question.trim()
+          ? `${question.question} ${trimmedLatex} `
+          : `${trimmedLatex} `,
+      }));
+      return;
+    }
+
+    updateActiveQuestion((question) => ({
+      ...question,
+      choices: normalizeQuestionChoices(
+        question.choices.map((choice) =>
+          choice.id === formulaTarget.choiceId
+            ? {
+                ...choice,
+              text: choice.text.trim()
+                  ? `${choice.text} ${trimmedLatex} `
+                  : `${trimmedLatex} `,
+              }
+            : choice,
+        ),
+      ),
+    }));
   };
 
   const addQuestion = () => {
@@ -689,8 +866,9 @@ export default function TeacherExamEditPage() {
 
   const showQuestionMediaInput = (key: InsertMenuKey) => {
     if (key === "formula") {
-      setStatusMessage("Mathlive суулгасны дараа томьёоны keyboard холбоно.");
-      setIsInsertMenuOpen(false);
+      setFormulaTarget({ type: "question" });
+      setStatusMessage("");
+      closeMenus();
       return;
     }
 
@@ -722,8 +900,9 @@ export default function TeacherExamEditPage() {
 
   const showChoiceMediaInput = (choiceId: string, key: InsertMenuKey) => {
     if (key === "formula") {
-      setStatusMessage("Mathlive суулгасны дараа томьёоны keyboard холбоно.");
-      setChoiceInsertMenuTargetId(null);
+      setFormulaTarget({ type: "choice", choiceId });
+      setStatusMessage("");
+      closeMenus();
       return;
     }
 
@@ -1024,6 +1203,16 @@ export default function TeacherExamEditPage() {
 
   return (
     <section className="space-y-6">
+      <FormulaKeyboardDialog
+        open={formulaTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setFormulaTarget(null);
+          }
+        }}
+        initialLatex={formulaInitialLatex}
+        onInsert={handleFormulaInsert}
+      />
       <Dialog open={isExamDialogOpen} onOpenChange={setIsExamDialogOpen}>
         <DialogContent
           showCloseButton={false}
@@ -1382,17 +1571,35 @@ export default function TeacherExamEditPage() {
                 </div>
               </div>
 
-              <input
-                value={activeQuestion.question}
-                onChange={(event) =>
-                  updateActiveQuestion((question) => ({
-                    ...question,
-                    question: event.target.value,
-                  }))
-                }
-                placeholder="Асуултаа бичнэ үү..."
-                className="w-full border-0 border-b border-[#E8E2F1] bg-transparent px-0 pb-4 text-[18px] text-[#1A1623] outline-none placeholder:text-[#8E8A94]"
-              />
+              {hasMathPreview(activeQuestion.question) &&
+              editingQuestionId !== activeQuestion.id ? (
+                <button
+                  type="button"
+                  onClick={() => setEditingQuestionId(activeQuestion.id)}
+                  className="w-full border-0 border-b border-[#E8E2F1] bg-transparent px-0 pb-4 text-left"
+                >
+                  <div className="min-h-[40px] text-[20px] leading-8 text-[#1A1623]">
+                    {renderPreviewContent(deferredQuestionPreview)}
+                  </div>
+                </button>
+              ) : (
+                <input
+                  value={activeQuestion.question}
+                  onChange={(event) =>
+                    updateActiveQuestion((question) => ({
+                      ...question,
+                      question: event.target.value,
+                    }))
+                  }
+                  onBlur={() => {
+                    if (hasMathPreview(activeQuestion.question)) {
+                      setEditingQuestionId(null);
+                    }
+                  }}
+                  placeholder="Асуултаа бичнэ үү..."
+                  className="w-full border-0 border-b border-[#E8E2F1] bg-transparent px-0 pb-4 text-[18px] text-[#1A1623] outline-none placeholder:text-[#8E8A94]"
+                />
+              )}
 
               {activeQuestion.showImageInput || activeQuestion.showVideoInput ? (
                 <div className="space-y-4">
@@ -1519,7 +1726,7 @@ export default function TeacherExamEditPage() {
 
               {activeQuestion.type === "mcq" ? (
                 <div className="space-y-4">
-                  {normalizeQuestionChoices(activeQuestion.choices).map((choice) => {
+                  {deferredChoicePreviews.map((choice) => {
                     const isChoiceMenuOpen = choiceInsertMenuTargetId === choice.id;
                     const isRemoveDisabled = activeQuestion.choices.length <= 2;
 
@@ -1637,6 +1844,15 @@ export default function TeacherExamEditPage() {
                             <Trash2 className="h-6 w-6 text-[#6F687D]" />
                           </button>
                         </div>
+
+                        {hasMathPreview(choice.text) ? (
+                          <div className="rounded-[16px] border border-[#E8E2F1] bg-[#FBFAFE] px-4 py-4 pl-11">
+                            <p className="mb-2 text-[13px] font-medium text-[#7C7688]">
+                              KaTeX preview
+                            </p>
+                            {renderPreviewContent(choice.text)}
+                          </div>
+                        ) : null}
 
                         {choice.showImageInput || choice.showVideoInput ? (
                           <div className="grid gap-3 pl-11 md:grid-cols-2">

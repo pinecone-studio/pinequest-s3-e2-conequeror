@@ -203,7 +203,7 @@ export default function TeacherExamsPage() {
   const [scheduleError, setScheduleError] = useState("");
   const [schedulingExam, setSchedulingExam] = useState<ExamCard | null>(null);
   const [scheduleGrade, setScheduleGrade] = useState("");
-  const [examGrade, setExamGrade] = useState("")
+  const [examGrade, setExamGrade] = useState("");
   const [scheduleDate, setScheduleDate] = useState("");
   const [scheduleStartTime, setScheduleStartTime] = useState("");
 
@@ -289,10 +289,10 @@ export default function TeacherExamsPage() {
       return;
     }
 
-    if (!selectedCreateGrade) {
-      setCreateError("Анги дээр үүсгэсэн classroom-оос нэгийг сонгоно уу.");
-      return;
-    }
+    // if (!selectedCreateGrade) {
+    //   setCreateError("Анги дээр үүсгэсэн classroom-оос нэгийг сонгоно уу.");
+    //   return;
+    // }
 
     try {
       setCreateError("");
@@ -422,8 +422,9 @@ export default function TeacherExamsPage() {
                     <select
                       value={subject}
                       onChange={(event) => setSubject(event.target.value)}
-                      className={`${fieldClassName} appearance-none pr-14 text-[#1A1623] ${subject ? "" : "text-[#8E8A94]"
-                        }`}
+                      className={`${fieldClassName} appearance-none pr-14 text-[#1A1623] ${
+                        subject ? "" : "text-[#8E8A94]"
+                      }`}
                     >
                       <option value="" disabled>
                         Хичээл сонгох
@@ -548,10 +549,11 @@ export default function TeacherExamsPage() {
                   key={tab.key}
                   type="button"
                   onClick={() => setActiveTab(tab.key)}
-                  className={`border-b-2 pb-3 transition-colors ${isActive
-                    ? "border-[#9A7BFF] text-[#9A7BFF]"
-                    : "border-transparent text-[#25232A]"
-                    }`}
+                  className={`border-b-2 pb-3 transition-colors ${
+                    isActive
+                      ? "border-[#9A7BFF] text-[#9A7BFF]"
+                      : "border-transparent text-[#25232A]"
+                  }`}
                 >
                   {tab.label}
                 </button>
@@ -603,8 +605,9 @@ export default function TeacherExamsPage() {
                     setSelectedCreateClassroomId(event.target.value)
                   }
                   disabled={!hasCreateClassroomOptions}
-                  className={`${fieldClassName} appearance-none pr-14 ${selectedCreateClassroomId ? "" : "text-[#8E8A94]"
-                    }`}
+                  className={`${fieldClassName} appearance-none pr-14 ${
+                    selectedCreateClassroomId ? "" : "text-[#8E8A94]"
+                  }`}
                 >
                   <option value="" disabled>
                     {hasCreateClassroomOptions
