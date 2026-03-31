@@ -32,7 +32,6 @@ export default function TakeExamScreen() {
   const [startedAt, setStartedAt] = useState<number | null>(null);
   const [isRestoring, setIsRestoring] = useState(true);
   const [submitLoading, setSubmitLoading] = useState(false);
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const autoSubmittedRef = useRef(false);
   const answersRef = useRef<Record<string, StudentAnswerDraft>>({});
   const startedAtRef = useRef<number | null>(null);
@@ -46,13 +45,10 @@ export default function TakeExamScreen() {
     [exam, student.email],
   );
 
-  const currentQuestion = shuffledQuestions[currentQuestionIndex] ?? null;
-  const currentAnswer = currentQuestion ? answers[currentQuestion.id]?.selectedChoiceId ?? null : null;
   const answeredCount = useMemo(
     () => shuffledQuestions.filter((question) => Boolean(answers[question.id]?.selectedChoiceId)).length,
     [answers, shuffledQuestions],
   );
-  const isLastQuestion = currentQuestionIndex >= shuffledQuestions.length - 1;
 
   useKeepAwake();
 
@@ -100,9 +96,6 @@ export default function TakeExamScreen() {
       if (!cancelled) {
         setAnswers(draft?.answers ?? {});
         setStartedAt(restoredStartedAt);
-        setCurrentQuestionIndex(
-          Math.min(Math.max(draft?.currentQuestionIndex ?? 0, 0), Math.max(shuffledQuestions.length - 1, 0)),
-        );
         setSecondsLeft(getRemainingSeconds(exam.duration, restoredStartedAt));
         setIsRestoring(false);
       }
@@ -139,14 +132,13 @@ export default function TakeExamScreen() {
       void saveExamDraft(exam.id, {
         startedAt,
         answers,
-        currentQuestionIndex,
       });
     }, 250);
 
     return () => {
       clearTimeout(timeout);
     };
-  }, [answers, currentQuestionIndex, exam, isRestoring, startedAt]);
+  }, [answers, exam, isRestoring, startedAt]);
 
   submitExamRef.current = async (
     source: "manual" | "auto" | "background" | "session_replaced",
@@ -207,25 +199,38 @@ export default function TakeExamScreen() {
     }));
   };
 
-  const handleNextQuestion = () => {
-    if (!currentQuestion || !currentAnswer) {
-      Alert.alert("Хариулт сонгоно уу", "Дараагийн асуулт руу орохын өмнө нэг сонголт тэмдэглэнэ үү.");
+  const handleSubmitPress = () => {
+    const unansweredCount = shuffledQuestions.length - answeredCount;
+
+    if (unansweredCount > 0) {
+      Alert.alert(
+        "Шалгалт илгээх үү?",
+        `${unansweredCount} асуулт хариулаагүй байна. Одоо илгээх бол хоосон үлдсэн асуултууд буруу гэж тооцогдоно.`,
+        [
+          {
+            text: "Болих",
+            style: "cancel",
+          },
+          {
+            text: "Илгээх",
+            style: "destructive",
+            onPress: () => {
+              void submitExamRef.current("manual");
+            },
+          },
+        ],
+      );
       return;
     }
 
-    if (isLastQuestion) {
-      void submitExamRef.current("manual");
-      return;
-    }
-
-    setCurrentQuestionIndex((current) => current + 1);
+    void submitExamRef.current("manual");
   };
 
   if (isRestoring) {
     return <FullScreenLoader label="Шалгалтын явцыг бэлдэж байна..." />;
   }
 
-  if (!exam || !currentQuestion) {
+  if (!exam || shuffledQuestions.length === 0) {
     return (
       <SafeAreaView style={styles.page}>
         <View style={styles.content}>
@@ -275,7 +280,7 @@ export default function TakeExamScreen() {
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <SecureText style={styles.title}>{exam.title}</SecureText>
         <SecureText style={styles.subtitle}>
-          Нэг удаад нэг асуулт харагдана. Өмнөх асуулт руу буцах боломжгүй.
+          Бүх асуулт нэг дор харагдана. Доош гүйлгээд хариулаад, дуусмагц шалгалтаа илгээнэ үү.
         </SecureText>
 
         <StatusCard
@@ -311,10 +316,8 @@ export default function TakeExamScreen() {
 
         <View style={styles.securityMetaCard}>
           <View style={styles.securityMetaRow}>
-            <SecureText style={styles.securityMetaLabel}>Асуулт</SecureText>
-            <SecureText style={styles.securityMetaValue}>
-              {currentQuestionIndex + 1} / {shuffledQuestions.length}
-            </SecureText>
+            <SecureText style={styles.securityMetaLabel}>Нийт асуулт</SecureText>
+            <SecureText style={styles.securityMetaValue}>{shuffledQuestions.length}</SecureText>
           </View>
           <View style={styles.securityMetaRow}>
             <SecureText style={styles.securityMetaLabel}>Дэлгэцийн зураг</SecureText>
@@ -338,41 +341,43 @@ export default function TakeExamScreen() {
           </View>
         </View>
 
-        <View style={styles.questionCard}>
-          <View style={styles.questionHeader}>
-            <SecureText style={styles.questionCounter}>Асуулт {currentQuestionIndex + 1}</SecureText>
-            <SecureText style={styles.questionPoints}>1 оноо</SecureText>
-          </View>
+        <View style={styles.questionStack}>
+          {shuffledQuestions.map((question, index) => (
+            <View key={question.id} style={styles.questionCard}>
+              <View style={styles.questionHeader}>
+                <SecureText style={styles.questionCounter}>Асуулт {index + 1}</SecureText>
+                <SecureText style={styles.questionPoints}>1 оноо</SecureText>
+              </View>
 
-          <SecureText style={styles.questionTitle}>
-            {currentQuestion.question}
-          </SecureText>
+              <SecureText style={styles.questionTitle}>{question.question}</SecureText>
 
-          <View style={styles.choiceList}>
-            {currentQuestion.choices.map((choice) => {
-              const selected = answers[currentQuestion.id]?.selectedChoiceId === choice.id;
+              <View style={styles.choiceList}>
+                {question.choices.map((choice) => {
+                  const selected = answers[question.id]?.selectedChoiceId === choice.id;
 
-              return (
-                <Pressable
-                  key={choice.id}
-                  style={[styles.choiceButton, selected ? styles.choiceButtonSelected : null]}
-                  onPress={() => handleSelectChoice(currentQuestion.id, choice.id)}
-                >
-                  <View style={[styles.radio, selected ? styles.radioSelected : null]}>
-                    {selected ? <View style={styles.radioInner} /> : null}
-                  </View>
-                  <SecureText style={styles.choiceText}>
-                    {choice.label}. {choice.text}
-                  </SecureText>
-                </Pressable>
-              );
-            })}
-          </View>
+                  return (
+                    <Pressable
+                      key={choice.id}
+                      style={[styles.choiceButton, selected ? styles.choiceButtonSelected : null]}
+                      onPress={() => handleSelectChoice(question.id, choice.id)}
+                    >
+                      <View style={[styles.radio, selected ? styles.radioSelected : null]}>
+                        {selected ? <View style={styles.radioInner} /> : null}
+                      </View>
+                      <SecureText style={styles.choiceText}>
+                        {choice.label}. {choice.text}
+                      </SecureText>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+          ))}
         </View>
 
         <PrimaryButton
-          label={submitLoading ? "Илгээж байна..." : isLastQuestion ? "Шалгалт илгээх" : "Дараагийн асуулт"}
-          onPress={() => void handleNextQuestion()}
+          label={submitLoading ? "Илгээж байна..." : "Шалгалт илгээх"}
+          onPress={handleSubmitPress}
           disabled={submitLoading}
           loading={submitLoading}
         />
@@ -496,6 +501,9 @@ const styles = StyleSheet.create({
     fontFamily: fonts.sans.semibold,
     fontSize: 14,
     color: colors.textPrimary,
+  },
+  questionStack: {
+    gap: 16,
   },
   questionCard: {
     borderRadius: 28,
