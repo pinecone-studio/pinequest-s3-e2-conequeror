@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAppData } from "@/data/app-data";
+import { MathText } from "@/components/MathText";
 import { SecurityOverlay } from "@/components/SecurityOverlay";
 import { SecureText } from "@/components/SecureText";
 import { FullScreenLoader } from "@/components/FullScreenLoader";
@@ -278,7 +279,7 @@ export default function TakeExamScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <SecureText style={styles.title}>{exam.title}</SecureText>
+        <MathText value={exam.title} style={styles.title} />
         <SecureText style={styles.subtitle}>
           Бүх асуулт нэг дор харагдана. Доош гүйлгээд хариулаад, дуусмагц шалгалтаа илгээнэ үү.
         </SecureText>
@@ -349,7 +350,7 @@ export default function TakeExamScreen() {
                 <SecureText style={styles.questionPoints}>1 оноо</SecureText>
               </View>
 
-              <SecureText style={styles.questionTitle}>{question.question}</SecureText>
+              <MathText value={question.question} style={styles.questionTitle} />
 
               <View style={styles.choiceList}>
                 {question.choices.map((choice) => {
@@ -364,9 +365,7 @@ export default function TakeExamScreen() {
                       <View style={[styles.radio, selected ? styles.radioSelected : null]}>
                         {selected ? <View style={styles.radioInner} /> : null}
                       </View>
-                      <SecureText style={styles.choiceText}>
-                        {choice.label}. {choice.text}
-                      </SecureText>
+                      <MathText value={`${choice.label}. ${choice.text}`} style={styles.choiceText} />
                     </Pressable>
                   );
                 })}

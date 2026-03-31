@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import { Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from "react-native";
+import { MathText } from "@/components/MathText";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { StatusCard } from "@/components/StatusCard";
 import { useAppData } from "@/data/app-data";
@@ -17,7 +18,7 @@ import {
   formatScheduledDate,
   formatScheduledTime,
   getExamEndTime,
-  getStudentExamHeader,
+  getStudentExamPresentation,
 } from "@/lib/student-exam";
 
 export default function ExamDetailScreen() {
@@ -28,6 +29,10 @@ export default function ExamDetailScreen() {
   const [hasReminder, setHasReminder] = useState(false);
   const [isReminderLoading, setIsReminderLoading] = useState(false);
   const exam = getExamById(examId);
+  const presentation = useMemo(
+    () => (exam ? getStudentExamPresentation(exam.subject) : null),
+    [exam],
+  );
   const reminderDate = useMemo(
     () => getExamReminderDate(exam?.scheduledDate, exam?.startTime),
     [exam?.scheduledDate, exam?.startTime],
@@ -118,8 +123,9 @@ export default function ExamDetailScreen() {
         ) : null}
 
         <View style={styles.card}>
-          <Text style={styles.subjectLabel}>{getStudentExamHeader(exam.subject, exam.title)}</Text>
-          <Text style={styles.description}>{exam.description}</Text>
+          <Text style={styles.subjectBadge}>{presentation?.subjectLabel}</Text>
+          <MathText value={exam.title} style={styles.subjectLabel} />
+          <MathText value={exam.description} style={styles.description} />
 
           <View style={styles.metaRow}>
             <View style={styles.metaChip}>
@@ -209,10 +215,16 @@ const styles = StyleSheet.create({
     ...shadows.card,
   },
   subjectLabel: {
+    marginTop: 6,
     fontFamily: fonts.display.semibold,
     fontSize: 25,
     lineHeight: 34,
     color: colors.textPrimary,
+  },
+  subjectBadge: {
+    fontFamily: fonts.sans.medium,
+    fontSize: 13,
+    color: colors.primary,
   },
   description: {
     marginTop: 12,
