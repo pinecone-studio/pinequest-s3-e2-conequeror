@@ -1,5 +1,6 @@
 import { router } from "expo-router";
-import { SafeAreaView, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useState } from "react";
+import { RefreshControl, SafeAreaView, ScrollView, StyleSheet, Text, View } from "react-native";
 import { EmptyState } from "@/components/EmptyState";
 import { StatusCard } from "@/components/StatusCard";
 import { StudentExamCard } from "@/components/StudentExamCard";
@@ -7,11 +8,31 @@ import { useAppData } from "@/data/app-data";
 import { colors, fonts, shadows } from "@/lib/theme";
 
 export default function StudentHomeScreen() {
-  const { availableExams, submissions } = useAppData();
+  const { availableExams, submissions, refreshData } = useAppData();
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+
+    try {
+      await refreshData();
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.page}>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={() => void handleRefresh()}
+            tintColor={colors.primary}
+          />
+        }
+      >
         <View style={styles.statsRow}>
           <View style={styles.statCard}>
             <Text style={styles.statValue}>{availableExams.length}</Text>
@@ -31,7 +52,7 @@ export default function StudentHomeScreen() {
         {availableExams.length === 0 ? (
           <EmptyState
             title="Нээлттэй шалгалт алга"
-            description="Шинэ шалгалт нэмэх бол өгөгдлийн файлдаа шинэ шалгалтын мэдээллээ оруулна уу."
+            description="Доош татаж шинэчлээд үзээрэй. Товлосон шалгалт эхлэх цагтаа хүрмэгц энд автоматаар орж ирнэ."
           />
         ) : (
           <View style={styles.cards}>

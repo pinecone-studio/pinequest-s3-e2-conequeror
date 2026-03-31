@@ -10,7 +10,7 @@ import {
 	legacyChoices,
 	supportsChoiceMediaColumns,
 } from "./choices-table.helpers";
-import { badUserInputError, notFoundError } from "../errors";
+import { badUserInputError, notFoundError, unauthorizedError } from "../errors";
 
 function parseScheduleDateTime(scheduledDate: string, startTime: string) {
 	const dateMatch = scheduledDate.match(/^(\d{4})-(\d{2})-(\d{2})$/);
@@ -64,7 +64,7 @@ export function isExamOpenNow(params: {
 
 export async function requireStudentRecord(context: GraphQLContext) {
 	if (!context.auth.userId || !context.auth.isAuthenticated) {
-		throw new Error("Unauthorized");
+		throw unauthorizedError();
 	}
 
 	const student = await context.db
@@ -74,7 +74,7 @@ export async function requireStudentRecord(context: GraphQLContext) {
 		.get();
 
 	if (!student) {
-		throw new Error("Student profile not found.");
+		throw notFoundError("Student profile not found.");
 	}
 
 	return student;

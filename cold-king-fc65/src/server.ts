@@ -1,6 +1,7 @@
 import { createClerkClient } from "@clerk/backend";
 import { createSchema, createYoga } from "graphql-yoga";
 import { getDb } from "./db/client";
+import { classrooms } from "./db/schemas/classroom.schema";
 import { students } from "./db/schemas/student.schema";
 import {
 	getAuthorizedParties,
@@ -20,6 +21,11 @@ export type GraphQLContext = {
 		isAuthenticated: boolean;
 	};
 };
+
+function getGradeFromClassName(className: string) {
+	const match = className.match(/^(\d{1,2})/);
+	return match ? match[1] : className;
+}
 
 export async function getRequestAuth(
 	request: Request,
@@ -79,20 +85,66 @@ async function getMobileDemoRequestAuth(
 		return null;
 	}
 
-	const student = await db
-		.select({ id: students.id, email: students.email })
+	const classroom = await db
+		.select({
+			id: classrooms.id,
+			className: classrooms.className,
+			classCode: classrooms.classCode,
+			teacherId: classrooms.teacherId,
+		})
+		.from(classrooms)
+		.where(eq(classrooms.classCode, inviteCode))
+		.get();
+
+	if (!classroom) {
+		return null;
+	}
+
+	const matchedStudent = await db
+		.select({ id: students.id })
 		.from(students)
-		.where(eq(students.inviteCode, inviteCode))
-		.all();
+		.where(and(eq(students.classroomId, classroom.id), eq(students.email, email)))
+		.get();
 
-	const matchedStudent = student.find((entry) => entry.email.trim().toLowerCase() === email);
+	if (matchedStudent) {
+		return {
+			userId: matchedStudent.id,
+			isAuthenticated: true,
+		};
+	}
 
-	if (!matchedStudent) {
+	// Mobile demo access relies on a classroom code header. If a student row still
+	// points at an older classroom, repair the denormalized classroom fields so the
+	// rest of the student queries read the correct classroom immediately.
+	const staleStudent = await db
+		.select({ id: students.id })
+		.from(students)
+		.where(eq(students.email, email))
+		.get();
+
+	if (!staleStudent) {
+		return null;
+	}
+
+	const repairedStudent = await db
+		.update(students)
+		.set({
+			grade: getGradeFromClassName(classroom.className),
+			className: classroom.className,
+			inviteCode: classroom.classCode,
+			classroomId: classroom.id,
+			teacherId: classroom.teacherId,
+		})
+		.where(eq(students.id, staleStudent.id))
+		.returning({ id: students.id })
+		.get();
+
+	if (!repairedStudent) {
 		return null;
 	}
 
 	return {
-		userId: matchedStudent.id,
+		userId: repairedStudent.id,
 		isAuthenticated: true,
 	};
 }

@@ -31,6 +31,11 @@ type TeacherScheduledExamsData = {
   teacherScheduledExams: TeacherExamRecord[];
 };
 
+type TeacherDashboardCard = ExamCard & {
+  category: DashboardCategoryKey;
+  renderKey: string;
+};
+
 const GET_TEACHER_SCHEDULED_EXAMS = gql`
   query GetTeacherScheduledExams {
     teacherScheduledExams {
@@ -94,20 +99,38 @@ function mapExamToCard(exam: TeacherExamRecord): ExamCard {
   };
 }
 
+function getExamCardBaseKey(exam: TeacherExamRecord) {
+  return [
+    exam.id,
+    exam.scheduledDate ?? "unscheduled",
+    exam.startTime ?? "unstarted",
+    exam.classroomName ?? exam.grade,
+  ].join(":");
+}
+
 export default function TeacherDashboardPage() {
   const [activeTab, setActiveTab] = useState<DashboardCategoryKey>("active");
   const { data } = useQuery<TeacherScheduledExamsData>(
     GET_TEACHER_SCHEDULED_EXAMS,
   );
 
-  const cards = useMemo(
-    () =>
-      (data?.teacherScheduledExams ?? []).map((exam) => ({
+  const cards = useMemo<TeacherDashboardCard[]>(() => {
+    const renderKeyCounts = new Map<string, number>();
+
+    return (data?.teacherScheduledExams ?? []).map((exam) => {
+      const baseKey = getExamCardBaseKey(exam);
+      const occurrence = renderKeyCounts.get(baseKey) ?? 0;
+
+      renderKeyCounts.set(baseKey, occurrence + 1);
+
+      return {
         ...mapExamToCard(exam),
         category: getExamCategory(exam),
-      })),
-    [data],
-  );
+        renderKey: `${baseKey}:${occurrence}`,
+      };
+    });
+  }, [data]);
+
   const filteredCards = useMemo(() => {
     return cards.filter((exam) => exam.category === activeTab);
   }, [activeTab, cards]);
@@ -141,7 +164,7 @@ export default function TeacherDashboardPage() {
       <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
         {filteredCards.map((card) => (
           <TeacherExamCard
-            key={card.id}
+            key={card.renderKey}
             card={card}
             href={`/teacher/dashboard/${card.id}`}
           />

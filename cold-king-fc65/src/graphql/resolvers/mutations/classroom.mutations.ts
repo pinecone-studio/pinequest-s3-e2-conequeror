@@ -17,6 +17,11 @@ function generateClassCode() {
     return code;
 }
 
+function getGradeFromClassName(className: string) {
+    const match = className.match(/^(\d{1,2})/);
+    return match ? match[1] : className;
+}
+
 export const classroomMutation = {
     Mutation: {
         createClassroom: async (_: any,
@@ -64,7 +69,7 @@ export const classroomMutation = {
                 throw notFoundError("Classroom not found.");
             }
 
-            return context.db
+            const updatedClassroom = await context.db
                 .update(classrooms)
                 .set({
                     className: args.input.className,
@@ -72,6 +77,16 @@ export const classroomMutation = {
                 .where(eq(classrooms.id, classroom.id))
                 .returning()
                 .get();
+
+            await context.db
+                .update(students)
+                .set({
+                    className: args.input.className,
+                    grade: getGradeFromClassName(args.input.className),
+                })
+                .where(eq(students.classroomId, classroom.id));
+
+            return updatedClassroom;
         },
         deleteClassroom: async (
             _: unknown,
