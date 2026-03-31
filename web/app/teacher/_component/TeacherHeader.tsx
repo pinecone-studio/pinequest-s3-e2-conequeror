@@ -6,6 +6,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import {
+  BarChart3,
   ChevronDown,
   FileText,
   LayoutGrid,
@@ -19,6 +20,11 @@ const navItems = [
     label: "Хяналтын самбар",
     href: "/teacher/dashboard",
     icon: LayoutGrid,
+  },
+  {
+    label: "Analytics",
+    href: "/teacher/analytics",
+    icon: BarChart3,
   },
   {
     label: "Шалгалтууд",
@@ -38,6 +44,13 @@ function isNavItemActive(
 ) {
   if (href === "/teacher") {
     return pathname === href;
+  }
+
+  if (href === "/teacher/analytics") {
+    return (
+      pathname === href ||
+      /^\/teacher\/dashboard\/[^/]+\/analytics$/.test(pathname)
+    );
   }
 
   return pathname === href || pathname.startsWith(`${href}/`);
@@ -108,27 +121,29 @@ export function TeacherHeader() {
           </div>
         </Link>
 
-        <nav className="flex items-center gap-8 lg:gap-10">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = isNavItemActive(pathname, item.href);
+        <div className="flex items-center gap-4 lg:gap-6">
+          <nav className="flex items-center gap-8 lg:gap-10">
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = isNavItemActive(pathname, item.href);
 
-            return (
-              <Link
-                key={item.label}
-                href={item.href}
-                className={`flex items-center gap-2.5 text-[15px] font-medium transition ${
-                  isActive
-                    ? "text-[#8B6FF7]"
-                    : "text-[#5B5563] hover:text-[#8B6FF7]"
-                }`}
-              >
-                <Icon className="h-[18px] w-[18px]" />
-                <span>{item.label}</span>
-              </Link>
-            );
-          })}
-        </nav>
+              return (
+                <Link
+                  key={item.label}
+                  href={item.href}
+                  className={`flex items-center gap-2.5 text-[15px] font-medium transition ${
+                    isActive
+                      ? "text-[#8B6FF7]"
+                      : "text-[#5B5563] hover:text-[#8B6FF7]"
+                  }`}
+                >
+                  <Icon className="h-[18px] w-[18px]" />
+                  <span>{item.label}</span>
+                </Link>
+              );
+            })}
+          </nav>
+        </div>
 
         <div
           ref={profileMenuRef}

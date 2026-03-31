@@ -597,7 +597,7 @@ export function TeacherExamDetail({ examId }: TeacherExamDetailProps) {
                 ))}
               </div>
 
-              <div className="mt-5 flex items-center gap-5 text-[#7F7A89]">
+              <div className="mt-5 flex items-center gap-4 text-[#7F7A89]">
                 <button
                   type="button"
                   onClick={openExamEditDialog}

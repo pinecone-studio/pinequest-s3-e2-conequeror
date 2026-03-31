@@ -1,8 +1,13 @@
 "use client";
 
-import { createElement, useEffect, useRef, useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 type FormulaKeyboardDialogProps = {
   open: boolean;
@@ -10,12 +15,6 @@ type FormulaKeyboardDialogProps = {
   onInsert: (latex: string) => void;
   initialLatex?: string;
   title?: string;
-};
-
-type MathfieldElementLike = HTMLElement & {
-  value: string;
-  insert: (value: string) => boolean;
-  focus: () => void;
 };
 
 const quickInsertSnippets = [
@@ -34,71 +33,45 @@ export function FormulaKeyboardDialog({
   initialLatex = "",
   title = "Томьёоны keyboard",
 }: FormulaKeyboardDialogProps) {
-  const mathFieldRef = useRef<MathfieldElementLike | null>(null);
+  const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const [latexValue, setLatexValue] = useState(initialLatex);
 
   useEffect(() => {
-    void import("mathlive").then(() => {
-      const mathWindow = window as unknown as Window & {
-        MathfieldElement?: {
-          soundsDirectory: string | null;
-        };
-      };
-
-      if (!mathWindow.MathfieldElement) {
-        return;
-      }
-
-      mathWindow.MathfieldElement.soundsDirectory = null;
-    });
-  }, []);
-
-  useEffect(() => {
     if (!open) {
-      const mathWindow = window as Window & {
-        mathVirtualKeyboard?: { visible: boolean };
-      };
-
-      if (mathWindow.mathVirtualKeyboard) {
-        mathWindow.mathVirtualKeyboard.visible = false;
-      }
       return;
     }
 
     setLatexValue(initialLatex);
 
     const timeoutId = window.setTimeout(() => {
-      const mathField = mathFieldRef.current;
-
-      if (!mathField) {
-        return;
-      }
-
-      mathField.value = initialLatex;
-      mathField.focus();
-
-      const mathWindow = window as Window & {
-        mathVirtualKeyboard?: { visible: boolean };
-      };
-
-      if (mathWindow.mathVirtualKeyboard) {
-        mathWindow.mathVirtualKeyboard.visible = true;
-      }
+      inputRef.current?.focus();
     }, 50);
 
     return () => window.clearTimeout(timeoutId);
   }, [initialLatex, open]);
 
   const handleInsertSnippet = (snippet: string) => {
-    const mathField = mathFieldRef.current;
+    const input = inputRef.current;
 
-    if (!mathField) {
+    if (!input) {
+      setLatexValue((current) => `${current}${snippet}`);
       return;
     }
 
-    mathField.insert(snippet);
-    setLatexValue(mathField.value);
-    mathField.focus();
+    const selectionStart = input.selectionStart ?? latexValue.length;
+    const selectionEnd = input.selectionEnd ?? latexValue.length;
+    const nextValue =
+      latexValue.slice(0, selectionStart) +
+      snippet +
+      latexValue.slice(selectionEnd);
+
+    setLatexValue(nextValue);
+
+    requestAnimationFrame(() => {
+      input.focus();
+      const caretPosition = selectionStart + snippet.length;
+      input.setSelectionRange(caretPosition, caretPosition);
+    });
   };
 
   const handleConfirm = () => {
@@ -136,19 +109,15 @@ export function FormulaKeyboardDialog({
           </div>
 
           <div className="rounded-[20px] border border-[#E8E2F1] bg-[#FBFAFE] p-4">
-            {createElement("math-field", {
-              ref: (node: Element | null) => {
-                mathFieldRef.current = node as MathfieldElementLike | null;
-              },
-              value: latexValue,
-              "virtual-keyboard-mode": "manual",
-              "smart-mode": true,
-              onInput: () => setLatexValue(mathFieldRef.current?.value ?? ""),
-              className:
-                "min-h-[72px] w-full rounded-[16px] border border-[#DCD3F1] bg-white px-4 py-4 text-[20px] text-[#1A1623] outline-none",
-            })}
+            <textarea
+              ref={inputRef}
+              value={latexValue}
+              onChange={(event) => setLatexValue(event.target.value)}
+              placeholder="Жишээ: \\frac{a}{b}, x^2, \\sqrt{x}"
+              className="min-h-[120px] w-full resize-none rounded-[16px] border border-[#DCD3F1] bg-white px-4 py-4 text-[18px] text-[#1A1623] outline-none transition focus:border-[#B59AF8] focus:ring-4 focus:ring-[#B59AF8]/15"
+            />
             <p className="mt-3 text-[13px] text-[#7C7688]">
-              Томьёогоо оруулаад `Оруулах` дарна уу.
+              `mathlive` суулгагдаагүй үед энэ fallback editor ажиллана.
             </p>
           </div>
         </div>
