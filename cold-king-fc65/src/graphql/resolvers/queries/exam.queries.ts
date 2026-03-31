@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import { GraphQLContext } from '../../../server';
 import { classrooms } from '../../../db/schemas/classroom.schema';
 import { exams } from '../../../db/schemas/exam.schema';
@@ -121,7 +121,17 @@ export const examQuery = {
 		},
 		teacherExamAnalytics: async (_: unknown, args: { examId: string }, context: GraphQLContext) => {
 			const exam = await getTeacherExam(context, args.examId);
+			const questions = await loadQuestionsWithChoices(context, exam.id);
 			const submissions = await context.db.select().from(studentExamSubmissions).where(eq(studentExamSubmissions.examId, exam.id)).all();
+			const submissionIds = submissions.map((submission) => submission.id);
+			const answerRows =
+				submissionIds.length > 0
+					? await context.db
+						.select()
+						.from(studentExamAnswers)
+						.where(inArray(studentExamAnswers.submissionId, submissionIds))
+						.all()
+					: [];
 
 			const studentResults = await Promise.all(
 				submissions.map(async (submission) => {
@@ -146,10 +156,62 @@ export const examQuery = {
 				}),
 			);
 
+			const questionInsights = questions.map((question) => {
+				const questionAnswers = answerRows.filter(
+					(answer) => answer.questionId === question.id,
+				);
+				const submissionCount = submissions.length;
+
+				if (question.type !== 'mcq') {
+					const pendingReviewCount = questionAnswers.filter((answer) =>
+						Boolean(answer.answerText?.trim()),
+					).length;
+
+					return {
+						questionId: question.id,
+						order: question.order,
+						question: question.question,
+						type: question.type,
+						submissionCount,
+						correctCount: 0,
+						incorrectCount: 0,
+						unansweredCount: Math.max(submissionCount - pendingReviewCount, 0),
+						pendingReviewCount,
+						wrongRate: null,
+					};
+				}
+
+				const correctCount = questionAnswers.filter((answer) => answer.isCorrect).length;
+				const incorrectCount = questionAnswers.filter(
+					(answer) => Boolean(answer.selectedChoiceId) && !answer.isCorrect,
+				).length;
+				const unansweredCount = Math.max(
+					submissionCount - correctCount - incorrectCount,
+					0,
+				);
+
+				return {
+					questionId: question.id,
+					order: question.order,
+					question: question.question,
+					type: question.type,
+					submissionCount,
+					correctCount,
+					incorrectCount,
+					unansweredCount,
+					pendingReviewCount: 0,
+					wrongRate:
+						submissionCount > 0
+							? Math.round((incorrectCount / submissionCount) * 100)
+							: 0,
+				};
+			});
+
 			return {
 				exam,
 				totalStudents: studentResults.length,
 				students: studentResults,
+				questionInsights,
 			};
 		},
 		teacherStudentSubmissionDetail: async (

@@ -69,10 +69,24 @@ export const examTypeDefs = gql`
         durationMinutes: Int!
     }
 
+    type TeacherExamQuestionInsight {
+        questionId: String!
+        order: Int!
+        question: String!
+        type: QuestionType!
+        submissionCount: Int!
+        correctCount: Int!
+        incorrectCount: Int!
+        unansweredCount: Int!
+        pendingReviewCount: Int!
+        wrongRate: Int
+    }
+
     type TeacherExamAnalytics {
         exam: Exam!
         totalStudents: Int!
         students: [TeacherExamStudentResult!]!
+        questionInsights: [TeacherExamQuestionInsight!]!
     }
 
     type TeacherStudentExamAnswer {

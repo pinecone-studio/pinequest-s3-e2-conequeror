@@ -14,6 +14,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 type FormulaKeyboardDialogProps = {
   open: boolean;
@@ -222,7 +228,7 @@ export function FormulaKeyboardDialog({
                   "min-h-[72px] w-full rounded-[16px] border border-[#DCD3F1] bg-white px-4 py-4 text-[20px] text-[#1A1623] outline-none",
               })}
             <p className="mt-3 text-[13px] text-[#7C7688]">
-              Томьёогоо оруулаад `Оруулах` дарна уу.
+              `mathlive` суулгагдаагүй үед энэ fallback editor ажиллана.
             </p>
           </div>
         </div>
