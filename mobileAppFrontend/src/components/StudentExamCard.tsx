@@ -1,5 +1,6 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import { MathText } from "@/components/MathText";
 import { getStudentExamPresentation } from "@/lib/student-exam";
 import { colors, fonts, shadows } from "@/lib/theme";
 
@@ -43,10 +44,10 @@ export function StudentExamCard({
         />
       </View>
 
-      <Text style={styles.title}>
-        <Text style={styles.subject}>{presentation.subjectLabel}</Text>{" "}
-        <Text style={styles.topic}>/{title}/</Text>
-      </Text>
+      <View style={styles.titleBlock}>
+        <Text style={styles.subject}>{presentation.subjectLabel}</Text>
+        <MathText value={`/${title}/`} style={styles.topic} />
+      </View>
       <Text style={styles.grade}>{grade}</Text>
 
       <View style={styles.metaRow}>
@@ -85,17 +86,20 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     borderRadius: 18,
   },
-  title: {
+  titleBlock: {
     marginTop: 14,
-    fontSize: 21,
-    lineHeight: 28,
   },
   subject: {
     fontFamily: fonts.display.semibold,
+    fontSize: 21,
+    lineHeight: 28,
     color: colors.textPrimary,
   },
   topic: {
+    marginTop: 2,
     fontFamily: fonts.sans.regular,
+    fontSize: 21,
+    lineHeight: 28,
     color: colors.textMuted,
   },
   grade: {

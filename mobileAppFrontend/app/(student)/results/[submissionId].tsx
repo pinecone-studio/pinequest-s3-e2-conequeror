@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from "react-native";
+import { MathText } from "@/components/MathText";
 import { StatusCard } from "@/components/StatusCard";
 import { useAppData } from "@/data/app-data";
 import type { SubmissionAnswer } from "@/data/types";
@@ -56,7 +57,7 @@ export default function ResultDetailScreen() {
         </Pressable>
 
         <View style={styles.heroCard}>
-          <Text style={styles.heroTitle}>{detail.title}</Text>
+          <MathText value={detail.title} style={styles.heroTitle} />
           <Text style={styles.heroSubtitle}>
             {detail.correctAnswers}/{detail.questionCount} зөв · {detail.scorePercent}%
           </Text>
@@ -106,9 +107,7 @@ export default function ResultDetailScreen() {
         <View style={styles.answers}>
           {detail.answers.map((answer) => (
             <View key={answer.questionId} style={styles.answerCard}>
-              <Text style={styles.questionTitle}>
-                {answer.order}. {answer.question}
-              </Text>
+              <MathText value={`${answer.order}. ${answer.question}`} style={styles.questionTitle} />
 
               <View style={styles.choiceList}>
                 {answer.choices.map((choice) => {
@@ -144,7 +143,7 @@ export default function ResultDetailScreen() {
                           {choice.label}
                         </Text>
                       </View>
-                      <Text style={styles.choiceText}>{choice.text}</Text>
+                      <MathText value={choice.text} style={styles.choiceText} />
                     </View>
                   );
                 })}
