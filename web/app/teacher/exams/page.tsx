@@ -113,15 +113,6 @@ const subjectOptions = [
   { value: "physics", label: "Физик" },
 ] as const;
 
-const gradeOptions = [
-  "9-р анги",
-  "10-р анги",
-  "11-р анги",
-  "12-р анги",
-] as const;
-
-type GradeOption = (typeof gradeOptions)[number];
-
 const durationOptions = [30, 45, 60, 90, 120] as const;
 
 const fieldClassName =
@@ -152,25 +143,12 @@ function getDefaultScheduleDate() {
 }
 
 function getDefaultScheduleTime() {
-  const nextHour = new Date();
-  nextHour.setHours(nextHour.getHours() + 1, 0, 0, 0);
+  const now = new Date();
 
   return [
-    String(nextHour.getHours()).padStart(2, "0"),
-    String(nextHour.getMinutes()).padStart(2, "0"),
+    String(now.getHours()).padStart(2, "0"),
+    String(now.getMinutes()).padStart(2, "0"),
   ].join(":");
-}
-
-function getGradeLabelFromClassroomName(
-  className: string,
-): GradeOption | string {
-  const match = className.match(/^(\d{1,2})/);
-
-  if (!match) {
-    return className;
-  }
-
-  return `${match[1]}-р анги`;
 }
 
 function mapExamToCard(exam: TeacherExamRecord): ExamCard {
@@ -198,14 +176,13 @@ export default function TeacherExamsPage() {
   const [title, setTitle] = useState("");
   const [subject, setSubject] = useState("");
   const [duration, setDuration] = useState(60);
-  const [selectedCreateClassroomId, setSelectedCreateClassroomId] =
+  const [selectedScheduleClassroomId, setSelectedScheduleClassroomId] =
     useState("");
   const [uploadedPdfFile, setUploadedPdfFile] = useState<File | null>(null);
   const [uploadedFileName, setUploadedFileName] = useState("");
   const [createError, setCreateError] = useState("");
   const [scheduleError, setScheduleError] = useState("");
   const [schedulingExam, setSchedulingExam] = useState<ExamCard | null>(null);
-  const [scheduleGrade, setScheduleGrade] = useState("");
   const [examGrade, setExamGrade] = useState("");
   const [scheduleDate, setScheduleDate] = useState("");
   const [scheduleStartTime, setScheduleStartTime] = useState("");
@@ -234,6 +211,12 @@ export default function TeacherExamsPage() {
     () => (examsData?.myExams ?? []).map(mapExamToCard),
     [examsData],
   );
+  const classrooms = classroomsData?.classroomsByTeacher ?? [];
+  const hasCreateClassroomOptions = classrooms.length > 0;
+  const hasSchedulableClassrooms = classrooms.length > 0;
+  const classroomErrorMessage = classroomsError
+    ? getApolloErrorMessage(classroomsError, "Ангиудыг ачаалж чадсангүй.")
+    : "";
 
   useEffect(() => {
     if (!isLoaded || !isSignedIn || !schedulingExam) {
@@ -250,38 +233,8 @@ export default function TeacherExamsPage() {
 
     return cards.filter((exam) => exam.subject === activeTab);
   }, [activeTab, cards]);
-
-  const classrooms = classroomsData?.classroomsByTeacher ?? [];
-  const selectedCreateClassroom =
-    classrooms.find(
-      (classroom) => classroom.id === selectedCreateClassroomId,
-    ) ?? null;
-  const selectedCreateGrade = selectedCreateClassroom
-    ? getGradeLabelFromClassroomName(selectedCreateClassroom.className)
-    : "";
-  const scheduleGradeOptions = gradeOptions.map((option) => ({
-    label: option,
-    classroomId:
-      classrooms.find(
-        (classroom) =>
-          getGradeLabelFromClassroomName(classroom.className) === option,
-      )?.id ?? "",
-  }));
-  const effectiveScheduleGrade =
-    scheduleGrade ||
-    scheduleGradeOptions.find((option) => option.classroomId)?.label ||
-    "";
   const effectiveScheduleClassroomId =
-    scheduleGradeOptions.find(
-      (option) => option.label === effectiveScheduleGrade,
-    )?.classroomId || "";
-  const hasCreateClassroomOptions = classrooms.length > 0;
-  const hasSchedulableGrades = scheduleGradeOptions.some((option) =>
-    Boolean(option.classroomId),
-  );
-  const classroomErrorMessage = classroomsError
-    ? getApolloErrorMessage(classroomsError, "Ангиудыг ачаалж чадсангүй.")
-    : "";
+    selectedScheduleClassroomId || classrooms[0]?.id || "";
   const canContinue = Boolean(
     subject && title.trim() && examGrade && duration > 0,
   );
@@ -307,7 +260,7 @@ export default function TeacherExamsPage() {
             subject,
             description: uploadedFileName ? `Файл: ${uploadedFileName}` : "",
             duration,
-            grade: selectedCreateGrade,
+            grade: examGrade.trim(),
           },
         },
       });
@@ -338,12 +291,9 @@ export default function TeacherExamsPage() {
   };
 
   const openScheduleDialog = (exam: ExamCard) => {
-    const defaultScheduleGrade =
-      gradeOptions.find((option) => option === exam.grade) ?? "";
-
     setSchedulingExam(exam);
     setScheduleError("");
-    setScheduleGrade(defaultScheduleGrade);
+    setSelectedScheduleClassroomId(classrooms[0]?.id ?? "");
     setScheduleDate(getDefaultScheduleDate());
     setScheduleStartTime(getDefaultScheduleTime());
     if (isLoaded && isSignedIn) {
@@ -612,12 +562,12 @@ export default function TeacherExamsPage() {
               </label>
               <div className="relative">
                 <select
-                  value={selectedCreateClassroomId}
+                  value={effectiveScheduleClassroomId}
                   onChange={(event) =>
-                    setSelectedCreateClassroomId(event.target.value)
+                    setSelectedScheduleClassroomId(event.target.value)
                   }
                   disabled={!hasCreateClassroomOptions}
-                  className={`${fieldClassName} appearance-none pr-14 ${selectedCreateClassroomId ? "" : "text-[#8E8A94]"
+                  className={`${fieldClassName} appearance-none pr-14 ${effectiveScheduleClassroomId ? "" : "text-[#8E8A94]"
                     }`}
                 >
                   <option value="" disabled>
@@ -666,7 +616,7 @@ export default function TeacherExamsPage() {
             <p className="mt-4 text-[14px] text-[#D25B56]">
               {classroomErrorMessage}
             </p>
-          ) : !hasSchedulableGrades ? (
+          ) : !hasSchedulableClassrooms ? (
             <p className="mt-4 text-[14px] text-[#6E6A74]">
               `School` хэсэг дээр 9, 10, 11, 12 ангид classroom үүсгэсэн бол энд
               сонголт болж гарна.

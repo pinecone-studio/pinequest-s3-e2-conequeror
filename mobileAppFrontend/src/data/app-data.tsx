@@ -1,8 +1,16 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { AppState } from "react-native";
 import { ConfigErrorScreen } from "@/components/ConfigErrorScreen";
 import { FullScreenLoader } from "@/components/FullScreenLoader";
 import { examCatalog, seedSubmissions, studentProfile } from "@/data/student-data";
 import type { Exam, StudentProfile, Submission } from "@/data/types";
+import {
+  clearLocalSubmissions,
+  loadLocalSubmissions,
+  loadRemoteSnapshot,
+  saveLocalSubmissions,
+  saveRemoteSnapshot,
+} from "@/lib/app-storage";
 import {
   fetchRemoteAvailableExamIds,
   fetchRemoteExamById,
@@ -19,6 +27,7 @@ type AppDataContextValue = {
   submissions: Submission[];
   getExamById: (examId: string) => Exam | null;
   getSubmissionById: (submissionId: string) => Submission | null;
+  refreshData: () => Promise<void>;
   submitExam: (input: {
     examId: string;
     startedAt: number;
@@ -39,9 +48,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const [student, setStudent] = useState<StudentProfile>(studentProfile);
   const [submissions, setSubmissions] = useState<Submission[]>(() => [...seedSubmissions]);
   const [remoteAvailableExams, setRemoteAvailableExams] = useState<Exam[]>([]);
-  const [bootStatus, setBootStatus] = useState<"loading" | "ready" | "error">(
-    useRemoteData ? "loading" : "ready",
-  );
+  const [bootStatus, setBootStatus] = useState<"loading" | "ready" | "error">("loading");
   const [bootError, setBootError] = useState("");
 
   const submittedExamIds = useMemo(
@@ -82,16 +89,48 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     [],
   );
 
-  useEffect(() => {
-    if (!useRemoteData) {
-      return;
-    }
+  const refreshRemoteSnapshot = useCallback(async () => {
+    const snapshot = await pullRemoteSnapshot();
+    applyRemoteSnapshot(snapshot);
+    await saveRemoteSnapshot(snapshot);
+    return snapshot;
+  }, [applyRemoteSnapshot, pullRemoteSnapshot]);
 
+  useEffect(() => {
     let cancelled = false;
 
     void (async () => {
       setBootStatus("loading");
       setBootError("");
+
+      if (!useRemoteData) {
+        try {
+          const cachedSubmissions = await loadLocalSubmissions();
+
+          if (!cancelled) {
+            setStudent(studentProfile);
+            setRemoteAvailableExams([]);
+            setSubmissions(cachedSubmissions ?? [...seedSubmissions]);
+            setBootStatus("ready");
+          }
+        } catch {
+          if (!cancelled) {
+            setStudent(studentProfile);
+            setRemoteAvailableExams([]);
+            setSubmissions([...seedSubmissions]);
+            setBootStatus("ready");
+          }
+        }
+
+        return;
+      }
+
+      const cachedSnapshot = await loadRemoteSnapshot();
+
+      if (!cancelled && cachedSnapshot) {
+        applyRemoteSnapshot(cachedSnapshot);
+        setBootStatus("ready");
+      }
 
       try {
         const snapshot = await pullRemoteSnapshot();
@@ -99,9 +138,10 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         if (!cancelled) {
           applyRemoteSnapshot(snapshot);
           setBootStatus("ready");
+          void saveRemoteSnapshot(snapshot);
         }
       } catch (caughtError) {
-        if (!cancelled) {
+        if (!cancelled && !cachedSnapshot) {
           setBootError(caughtError instanceof Error ? caughtError.message : "Өгөгдөл ачаалж чадсангүй.");
           setBootStatus("error");
         }
@@ -113,6 +153,47 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     };
   }, [applyRemoteSnapshot, pullRemoteSnapshot, useRemoteData]);
 
+  useEffect(() => {
+    if (!useRemoteData || bootStatus !== "ready") {
+      return;
+    }
+
+    let cancelled = false;
+    let inFlight = false;
+
+    const refreshIfIdle = async () => {
+      if (cancelled || inFlight) {
+        return;
+      }
+
+      inFlight = true;
+
+      try {
+        await refreshRemoteSnapshot();
+      } catch {
+        // Keep the last good snapshot if background refresh fails.
+      } finally {
+        inFlight = false;
+      }
+    };
+
+    const interval = setInterval(() => {
+      void refreshIfIdle();
+    }, 30_000);
+
+    const appStateSubscription = AppState.addEventListener("change", (nextState) => {
+      if (nextState === "active") {
+        void refreshIfIdle();
+      }
+    });
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+      appStateSubscription.remove();
+    };
+  }, [bootStatus, refreshRemoteSnapshot, useRemoteData]);
+
   const getExamById = useCallback((examId: string) => {
     const source = useRemoteData ? remoteAvailableExams : examCatalog;
     return source.find((exam) => exam.id === examId) ?? null;
@@ -123,6 +204,18 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     [submissions],
   );
 
+  const refreshData = useCallback(async () => {
+    if (useRemoteData) {
+      await refreshRemoteSnapshot();
+      return;
+    }
+
+    const cachedSubmissions = await loadLocalSubmissions();
+    setStudent(studentProfile);
+    setRemoteAvailableExams([]);
+    setSubmissions(cachedSubmissions ?? [...seedSubmissions]);
+  }, [refreshRemoteSnapshot, useRemoteData]);
+
   const submitExam = useCallback<AppDataContextValue["submitExam"]>(async ({ examId, startedAt, answers }) => {
     if (useRemoteData) {
       const submission = await submitRemoteStudentExam({
@@ -130,8 +223,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         startedAt,
         answers,
       });
-      const snapshot = await pullRemoteSnapshot();
-      applyRemoteSnapshot(snapshot);
+      await refreshRemoteSnapshot();
       return { id: submission.id };
     }
 
@@ -180,20 +272,22 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       answers: reviewedAnswers,
     };
 
-    setSubmissions((current) => [
+    const nextSubmissions = [
       nextSubmission,
-      ...current.filter((submission) => submission.examId !== exam.id),
-    ]);
+      ...submissions.filter((submission) => submission.examId !== exam.id),
+    ];
+
+    setSubmissions(nextSubmissions);
+    void saveLocalSubmissions(nextSubmissions);
 
     return { id: nextSubmission.id };
-  }, [applyRemoteSnapshot, pullRemoteSnapshot, useRemoteData]);
+  }, [refreshRemoteSnapshot, submissions, useRemoteData]);
 
   const resetData = useCallback(() => {
     if (useRemoteData) {
       void (async () => {
         try {
-          const snapshot = await pullRemoteSnapshot();
-          applyRemoteSnapshot(snapshot);
+          await refreshRemoteSnapshot();
         } catch {
           // Keep the current snapshot if refresh fails.
         }
@@ -202,7 +296,8 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     }
 
     setSubmissions([...seedSubmissions]);
-  }, [applyRemoteSnapshot, pullRemoteSnapshot, useRemoteData]);
+    void clearLocalSubmissions();
+  }, [refreshRemoteSnapshot, useRemoteData]);
 
   const value = useMemo<AppDataContextValue>(
     () => ({
@@ -211,14 +306,19 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       submissions,
       getExamById,
       getSubmissionById,
+      refreshData,
       submitExam,
       resetData,
     }),
-    [availableExams, getExamById, getSubmissionById, resetData, student, submitExam, submissions],
+    [availableExams, getExamById, getSubmissionById, refreshData, resetData, student, submitExam, submissions],
   );
 
-  if (useRemoteData && bootStatus === "loading") {
-    return <FullScreenLoader label="Жинхэнэ өгөгдлийг ачаалж байна..." />;
+  if (bootStatus === "loading") {
+    return (
+      <FullScreenLoader
+        label={useRemoteData ? "Жинхэнэ өгөгдлийг ачаалж байна..." : "Төхөөрөмжийн өгөгдлийг бэлдэж байна..."}
+      />
+    );
   }
 
   if (useRemoteData && bootStatus === "error") {

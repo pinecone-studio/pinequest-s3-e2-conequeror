@@ -147,7 +147,7 @@ export const studentQuery = {
 				.get();
 
 			if (!submission) {
-				throw new Error('Submission not found.');
+				throw notFoundError('Submission not found.');
 			}
 
 			const examRecord = await context.db
@@ -159,19 +159,23 @@ export const studentQuery = {
 				)
 				.innerJoin(exams, eq(announcedExams.examId, exams.id))
 				.where(
-					and(
-						eq(exams.id, submission.examId),
-						eq(announcedExamGrades.classroomId, student.classroomId),
-					),
+					eq(exams.id, submission.examId),
 				)
 				.get();
 
-			if (!examRecord) {
-				throw new Error('Exam not found for submission.');
+			const exam =
+				examRecord?.exams ??
+				(await context.db
+					.select()
+					.from(exams)
+					.where(eq(exams.id, submission.examId))
+					.get());
+
+			if (!exam) {
+				throw notFoundError('Exam not found for submission.');
 			}
 
-			const exam = examRecord.exams;
-			const announcedExam = examRecord.announced_exams;
+			const announcedExam = examRecord?.announced_exams ?? null;
 			const examQuestions = await loadQuestionsWithChoices(context, exam.id);
 			const answerRows = await context.db.select().from(studentExamAnswers).where(eq(studentExamAnswers.submissionId, submission.id)).all();
 
@@ -181,8 +185,8 @@ export const studentQuery = {
 				title: exam.title,
 				subject: exam.subject,
 				grade: exam.grade,
-				scheduledDate: announcedExam.scheduledDate,
-				startTime: announcedExam.startTime,
+				scheduledDate: announcedExam?.scheduledDate ?? null,
+				startTime: announcedExam?.startTime ?? null,
 				duration: exam.duration,
 				questionCount: submission.totalQuestions,
 				correctAnswers: submission.correctAnswers,
