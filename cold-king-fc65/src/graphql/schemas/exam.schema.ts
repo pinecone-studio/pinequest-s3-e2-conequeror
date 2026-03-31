@@ -10,6 +10,7 @@ export const examTypeDefs = gql`
         duration: Int!
         grade: String!
         createdBy: String!
+        fileUrl: String
         classroomName: String
         scheduledDate: String
         startTime: String
@@ -135,6 +136,7 @@ export const examTypeDefs = gql`
         grade: String!
         createdBy: String
         openStatus: Boolean
+        fileUrl: String
     }
 
     input scheduleExamInput {

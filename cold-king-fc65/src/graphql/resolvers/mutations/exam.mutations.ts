@@ -20,6 +20,7 @@ export const examMutation = {
                     duration: number;
                     grade: string;
                     createdBy?: string | null;
+                    fileUrl?: string | null
                 };
             },
             context: GraphQLContext,
@@ -35,6 +36,7 @@ export const examMutation = {
                     description: args.input.description ?? null,
                     duration: args.input.duration,
                     grade: args.input.grade,
+                    fileUrl: args.input.fileUrl,
                     createdBy: userId,
                 })
                 .returning()

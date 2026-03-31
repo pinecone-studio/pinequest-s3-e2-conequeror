@@ -13,6 +13,8 @@ export const exams = sqliteTable("exams", {
 
     grade: text().notNull(),
 
+    fileUrl: text(),
+
     createdBy: text().notNull(),
 
 })

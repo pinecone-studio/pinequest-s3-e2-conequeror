@@ -178,6 +178,7 @@ export function TeacherSchoolRequests() {
     fetchPolicy: "network-only",
   });
 
+<<<<<<< Updated upstream
   const resetCreateDialog = () => {
     setSelectedSubject("");
     setSelectedGrade("");
@@ -185,6 +186,8 @@ export function TeacherSchoolRequests() {
     setStatusMessage("");
   };
 
+=======
+>>>>>>> Stashed changes
   useEffect(() => {
     if (!isLoaded || !isSignedIn) {
       return;
