@@ -367,6 +367,8 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         question: question.question,
         type: question.type,
         answerText: null,
+        correctAnswerText: correctChoice?.text ?? null,
+        aiExplanation: null,
         selectedChoiceId: draft?.selectedChoiceId ?? null,
         correctChoiceId: correctChoice?.id ?? null,
         isCorrect,

@@ -14,11 +14,6 @@ export default function ResultsScreen() {
   return (
     <SafeAreaView edges={["top", "left", "right"]} style={styles.page}>
       <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.statsCard}>
-          <Text style={styles.statsValue}>{submissions.length}</Text>
-          <Text style={styles.statsLabel}>Илгээсэн шалгалт</Text>
-        </View>
-
         {submissions.length === 0 ? (
           <EmptyState
             title="Үр дүн алга"
@@ -57,30 +52,8 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: 20,
-    paddingTop: 8,
+    paddingTop: 18,
     paddingBottom: 136,
-  },
-  statsCard: {
-    marginTop: 0,
-    marginBottom: 18,
-    borderRadius: 22,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-    paddingHorizontal: 18,
-    paddingVertical: 16,
-    ...shadows.card,
-  },
-  statsValue: {
-    fontFamily: fonts.display.semibold,
-    fontSize: 24,
-    color: colors.textPrimary,
-  },
-  statsLabel: {
-    marginTop: 6,
-    fontFamily: fonts.sans.medium,
-    fontSize: 13,
-    color: colors.textMuted,
   },
   cards: {
     gap: 16,
