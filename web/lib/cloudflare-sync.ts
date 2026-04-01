@@ -54,6 +54,8 @@ export function getCloudflareGraphqlUrl() {
     process.env.NEXT_PUBLIC_CLOUDFLARE_GRAPHQL_URL ||
     null;
 
+  console.log("configuredUrl on cf sync", configuredUrl);
+
   if (typeof window !== "undefined") {
     const hostname = window.location.hostname;
     if (

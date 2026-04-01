@@ -8,6 +8,8 @@ export function makeClient(getToken?: () => Promise<string | null>) {
     process.env.NEXT_PUBLIC_CLOUDFLARE_GRAPHQL_URL ||
     getCloudflareGraphqlUrl() ||
     "/graphql";
+
+  console.log("uri on apollo client", uri);
   const httpLink = new HttpLink({
     uri,
     credentials: "include",
