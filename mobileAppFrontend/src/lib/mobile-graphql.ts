@@ -104,6 +104,8 @@ type RemoteSubmissionDetail = {
       question: string;
       type: "mcq";
       answerText: string | null;
+      correctAnswerText: string | null;
+      aiExplanation: string | null;
       selectedChoiceId: string | null;
       correctChoiceId: string | null;
       isCorrect: boolean | null;
@@ -223,6 +225,8 @@ const GET_STUDENT_EXAM_SUBMISSION_DETAIL = `
         question
         type
         answerText
+        correctAnswerText
+        aiExplanation
         selectedChoiceId
         correctChoiceId
         isCorrect
@@ -440,6 +444,8 @@ function mapSubmission(payload: RemoteSubmissionDetail["studentExamSubmissionDet
       question: answer.question,
       type: "mcq",
       answerText: answer.answerText,
+      correctAnswerText: answer.correctAnswerText,
+      aiExplanation: answer.aiExplanation,
       selectedChoiceId: answer.selectedChoiceId,
       correctChoiceId: answer.correctChoiceId,
       isCorrect: answer.isCorrect,

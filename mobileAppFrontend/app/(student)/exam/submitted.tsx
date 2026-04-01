@@ -41,14 +41,16 @@ export default function ExamSubmittedScreen() {
         <View style={styles.card}>
           <View style={styles.iconOuter}>
             <View style={styles.iconInner}>
-              <Ionicons name="checkmark-circle-outline" size={28} color={colors.primary} />
+              <Ionicons name="checkmark-circle-outline" size={16} color={colors.primary} />
             </View>
           </View>
 
-          <Text style={styles.title}>Шалгалт амжилттай илгээгдлээ</Text>
-          <Text style={styles.description}>
-            Үр дүнг хугацаа дууссаны дараа харах боломжтой
-          </Text>
+          <View style={styles.textBlock}>
+            <Text style={styles.title}>Шалгалт амжилттай илгээгдлээ</Text>
+            <Text style={styles.description}>
+              Үр дүнг хугацаа дууссаны дараа харах боломжтой
+            </Text>
+          </View>
         </View>
       </View>
     </SafeAreaView>
@@ -100,46 +102,48 @@ const styles = StyleSheet.create({
   },
   card: {
     alignSelf: "center",
-    width: "100%",
-    maxWidth: 350,
+    width: 350,
+    height: 160,
+    justifyContent: "center",
     borderRadius: 28,
     borderWidth: 1,
     borderColor: "#D7D0FF",
     backgroundColor: "#F7F4FF",
     paddingHorizontal: 28,
-    paddingTop: 22,
-    paddingBottom: 28,
+    paddingVertical: 20,
     ...shadows.card,
   },
   iconOuter: {
-    height: 82,
-    width: 82,
-    borderRadius: 41,
+    height: 38,
+    width: 38,
+    borderRadius: 19,
     backgroundColor: "#E8E0FF",
     alignItems: "center",
     justifyContent: "center",
   },
   iconInner: {
-    height: 52,
-    width: 52,
-    borderRadius: 26,
+    height: 26,
+    width: 26,
+    borderRadius: 13,
     backgroundColor: "#F4EEFF",
     alignItems: "center",
     justifyContent: "center",
   },
+  textBlock: {
+    marginTop: 16,
+    gap: 10,
+    maxWidth: 260,
+  },
   title: {
-    marginTop: 24,
     fontFamily: fonts.display.semibold,
-    fontSize: 22,
-    lineHeight: 30,
+    fontSize: 16,
+    lineHeight: 21,
     color: colors.textPrimary,
   },
   description: {
-    marginTop: 18,
-    maxWidth: 280,
     fontFamily: fonts.sans.regular,
-    fontSize: 16,
-    lineHeight: 24,
+    fontSize: 14,
+    lineHeight: 19,
     color: "#8F8A99",
   },
 });
