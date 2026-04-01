@@ -233,7 +233,12 @@ export default function ExamDetailScreen() {
 
           <View style={styles.scheduleRow}>
             <View style={styles.scheduleItem}>
-              <View style={styles.scheduleAccent} />
+              <View
+                style={[
+                  styles.scheduleAccent,
+                  { backgroundColor: presentation?.accentColor ?? "#C7BEFF" },
+                ]}
+              />
               <View>
                 <Text style={styles.scheduleLabel}>ЭХЛЭХ ЦАГ</Text>
                 <Text style={styles.scheduleValue}>{formatScheduledTime(exam.startTime)}</Text>
@@ -241,7 +246,12 @@ export default function ExamDetailScreen() {
             </View>
 
             <View style={styles.scheduleItem}>
-              <View style={styles.scheduleAccent} />
+              <View
+                style={[
+                  styles.scheduleAccent,
+                  { backgroundColor: presentation?.accentColor ?? "#C7BEFF" },
+                ]}
+              />
               <View>
                 <Text style={styles.scheduleLabel}>ДУУСАХ ЦАГ</Text>
                 <Text style={styles.scheduleValue}>
@@ -251,7 +261,15 @@ export default function ExamDetailScreen() {
             </View>
           </View>
 
-          <View style={styles.noticeBox}>
+          <View
+            style={[
+              styles.noticeBox,
+              {
+                backgroundColor: presentation?.noticeBackground ?? "#F3F0FF",
+                borderColor: presentation?.noticeBorder ?? "#D8D1FA",
+              },
+            ]}
+          >
             <Ionicons name="information-circle-outline" size={22} color={colors.textPrimary} />
             <Text style={styles.noticeText}>
               Шалгалтын үед хяналт болон хамгаалалтын функцууд идэвхтэй ажиллана.
@@ -282,15 +300,31 @@ export default function ExamDetailScreen() {
             <View
               style={[
                 styles.startActionShell,
+                {
+                  shadowColor: presentation?.actionButtonBackground ?? "#9E81F0",
+                },
                 isExamLoading || exam.questionCount === 0 ? styles.startActionDisabled : null,
               ]}
             >
               <Pressable
-                style={styles.startAction}
+                style={[
+                  styles.startAction,
+                  {
+                    backgroundColor: presentation?.actionButtonBackground ?? "#9E81F0",
+                  },
+                ]}
                 onPress={() => void handleStartPress()}
                 disabled={isExamLoading || exam.questionCount === 0}
               >
-                <View pointerEvents="none" style={styles.startActionInset} />
+                <View
+                  pointerEvents="none"
+                  style={[
+                    styles.startActionInset,
+                    {
+                      backgroundColor: presentation?.actionButtonInset ?? "rgba(103, 79, 184, 0.38)",
+                    },
+                  ]}
+                />
                 {isExamLoading ? (
                   <ActivityIndicator color="#FFFFFF" />
                 ) : (
@@ -349,8 +383,9 @@ const styles = StyleSheet.create({
   },
   card: {
     alignSelf: "center",
-    width: 350,
-    height: 407,
+    width: "100%",
+    maxWidth: 350,
+    minHeight: 407,
     borderRadius: 34,
     borderWidth: 1,
     borderColor: "#CEC8FF",
@@ -430,9 +465,8 @@ const styles = StyleSheet.create({
   },
   noticeBox: {
     marginTop: 26,
-    alignSelf: "center",
-    width: 302,
-    height: 96,
+    width: "100%",
+    minHeight: 96,
     borderRadius: 16,
     borderWidth: 1,
     borderColor: "#D6D1F7",
@@ -480,7 +514,6 @@ const styles = StyleSheet.create({
     width: 142,
     height: 44,
     borderRadius: 18,
-    shadowColor: "#9E81F0",
     shadowOpacity: 0.22,
     shadowRadius: 8,
     shadowOffset: {
@@ -495,7 +528,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderRadius: 18,
-    backgroundColor: "#9E81F0",
     overflow: "hidden",
   },
   startActionInset: {

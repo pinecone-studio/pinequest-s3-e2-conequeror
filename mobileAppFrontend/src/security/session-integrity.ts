@@ -33,6 +33,10 @@ type CreateSessionIntegrityOptions = {
   onSessionReplaced: () => void;
 };
 
+function isPermanentSessionError(status: number) {
+  return status === 400 || status === 401 || status === 403 || status === 404;
+}
+
 function buildRandomId(prefix: string) {
   const randomPart =
     globalThis.crypto?.randomUUID?.() ??
@@ -122,6 +126,10 @@ async function postSessionAction(action: SessionAction): Promise<SessionBackendS
     });
 
     if (!response.ok) {
+      if (isPermanentSessionError(response.status)) {
+        return "skipped";
+      }
+
       await enqueueAction(action);
       return "queued_offline";
     }
@@ -158,6 +166,10 @@ async function flushQueuedActions() {
       });
 
       if (!response.ok) {
+        if (isPermanentSessionError(response.status)) {
+          continue;
+        }
+
         remaining.push(action);
         continue;
       }
@@ -218,7 +230,13 @@ export function createSessionIntegrity({ userId, examId, onSessionReplaced }: Cr
 
     inFlight = true;
     try {
-      await sendAction("heartbeat");
+      const status = await sendAction("heartbeat");
+
+      if (status === "skipped" && heartbeatTimer) {
+        clearInterval(heartbeatTimer);
+        heartbeatTimer = null;
+        stopped = true;
+      }
     } finally {
       inFlight = false;
     }
@@ -228,7 +246,7 @@ export function createSessionIntegrity({ userId, examId, onSessionReplaced }: Cr
     async start() {
       const status = await sendAction("start");
 
-      if (stopped || status === "replaced_by_other_device") {
+      if (stopped || status === "replaced_by_other_device" || status === "skipped") {
         return status;
       }
 

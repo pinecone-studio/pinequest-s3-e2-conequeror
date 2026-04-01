@@ -149,6 +149,33 @@ async function getMobileDemoRequestAuth(
 	};
 }
 
+export async function resolveRequestStudentId(
+	request: Request,
+	env: WorkerBindings,
+	db = getDb(env),
+	auth?: GraphQLContext["auth"],
+) {
+	const demoAuth = await getMobileDemoRequestAuth(request, env, db);
+
+	if (demoAuth?.isAuthenticated && demoAuth.userId) {
+		return demoAuth.userId;
+	}
+
+	const resolvedAuth = auth ?? (await getResolvedRequestAuth(request, env, db));
+
+	if (!resolvedAuth.isAuthenticated || !resolvedAuth.userId) {
+		return null;
+	}
+
+	const student = await db
+		.select({ id: students.id })
+		.from(students)
+		.where(eq(students.id, resolvedAuth.userId))
+		.get();
+
+	return student?.id ?? null;
+}
+
 export async function getResolvedRequestAuth(
 	request: Request,
 	env: WorkerBindings,
