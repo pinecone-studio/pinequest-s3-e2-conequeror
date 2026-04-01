@@ -38,6 +38,7 @@ import { MathBlock, MathInline } from "@/components/math";
 import { getApolloErrorMessage } from "@/lib/apollo-error";
 import { getCloudflareGraphqlUrl } from "@/lib/cloudflare-sync";
 import { consumeExamPdfDraft } from "@/lib/exam-pdf-draft-store";
+import { parseExamQuestionsFromPdfText } from "@/lib/exam-pdf-parser";
 
 type QuestionType = "mcq" | "open" | "short";
 
@@ -321,6 +322,50 @@ function createQuestionDraftFromServer(
   };
 }
 
+function createQuestionDraftFromParsed({
+  question,
+  type,
+  choices,
+}: {
+  question: string;
+  type: QuestionType;
+  choices: { label: string; text: string; isCorrect: boolean }[];
+}): QuestionDraft {
+  const normalizedChoices =
+    type === "mcq" && choices.length > 0
+      ? normalizeQuestionChoices(
+        choices.map((choice) => ({
+          id: crypto.randomUUID(),
+          label: choice.label,
+          text: choice.text,
+          isCorrect: choice.isCorrect,
+          imageUrl: "",
+          videoUrl: "",
+          imageFileName: "",
+          videoFileName: "",
+          showImageInput: false,
+          showVideoInput: false,
+        })),
+      )
+      : ["A", "B"].map(createChoice);
+
+  return {
+    id: crypto.randomUUID(),
+    question,
+    type,
+    topic: "",
+    difficulty: "",
+    imageUrl: "",
+    videoUrl: "",
+    imageFileName: "",
+    videoFileName: "",
+    showImageInput: false,
+    showVideoInput: false,
+    points: 1,
+    choices: normalizedChoices,
+  };
+}
+
 function readFileAsDataUrl(file: File) {
   return new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
@@ -535,6 +580,7 @@ export default function TeacherExamEditPage() {
   const choiceInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const choiceIdToFocusRef = useRef<string | null>(null);
   const parsedDraftExamIdRef = useRef<string | null>(null);
+  const parsedDraftAppliedRef = useRef(false);
 
   async function parsePdfDraftWithApi(file: File) {
     const formData = new FormData();
@@ -618,6 +664,51 @@ export default function TeacherExamEditPage() {
     () => examData?.teacherExamDetail.questions.map(createQuestionDraftFromServer) ?? [],
     [examData],
   );
+
+  useEffect(() => {
+    if (!pdfParsedText || parsedDraftAppliedRef.current) {
+      return;
+    }
+
+    queueMicrotask(() => {
+      if (parsedDraftAppliedRef.current) {
+        return;
+      }
+
+      if (serverQuestions.length > 0) {
+        parsedDraftAppliedRef.current = true;
+        setStatusMessage(
+          "Энэ шалгалтад асуултууд аль хэдийн хадгалагдсан тул PDF автоматаар орлуулаагүй.",
+        );
+        return;
+      }
+
+      const parsed = parseExamQuestionsFromPdfText(pdfParsedText);
+
+      if (parsed.length === 0) {
+        parsedDraftAppliedRef.current = true;
+        setStatusMessage(
+          "PDF-ээс асуулт автоматаар танигдсангүй. Хэлбэрийг стандартжуулж дахин оруулна уу.",
+        );
+        return;
+      }
+
+      const nextDrafts = parsed.map((item) =>
+        createQuestionDraftFromParsed({
+          question: item.question,
+          type: item.type,
+          choices: item.choices,
+        }),
+      );
+
+      parsedDraftAppliedRef.current = true;
+      setDraftQuestions(nextDrafts);
+      setActiveQuestionId(nextDrafts[0]?.id ?? null);
+      setStatusMessage(
+        `PDF-ээс ${nextDrafts.length} асуулт импортлов. Баталгаажуулаад хадгалаарай.`,
+      );
+    });
+  }, [pdfParsedText, serverQuestions]);
   const questions = useMemo(() => {
     if (draftQuestions) {
       return draftQuestions;
@@ -2265,9 +2356,6 @@ export default function TeacherExamEditPage() {
         </section>
         
       </div>
-      <div className="border rounded-2xl w-full">
-          {pdfParsedText}
-        </div>
     </section>
   );
 }

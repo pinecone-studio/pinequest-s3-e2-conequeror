@@ -33,34 +33,41 @@ interface ExecutionContext {
 
 const worker = {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-    // Expose wrangler vars to process.env for SDKs that read at request time.
-    for (const [key, value] of Object.entries(env)) {
-      if (typeof value === "string") {
-        (globalThis as Record<string, unknown>).process ??= { env: {} } as NodeJS.Process;
-        (process.env as Record<string, string>)[key] = value;
+
+    try {
+      for (const [key, value] of Object.entries(env)) {
+        if (typeof value === "string") {
+          (globalThis as Record<string, unknown>).process ??= { env: {} } as NodeJS.Process;
+          (process.env as Record<string, string>)[key] = value;
+        }
       }
+
+      const url = new URL(request.url);
+
+      // Image optimization via Cloudflare Images binding.
+      // The parseImageParams validation inside handleImageOptimization
+      // normalizes backslashes and validates the origin hasn't changed.
+      if (url.pathname === "/_vinext/image") {
+        const allowedWidths = [...DEFAULT_DEVICE_SIZES, ...DEFAULT_IMAGE_SIZES];
+        return handleImageOptimization(request, {
+          fetchAsset: (path) => env.ASSETS.fetch(new Request(new URL(path, request.url))),
+          transformImage: async (body, { width, format, quality }) => {
+            const result = await env.IMAGES.input(body).transform(width > 0 ? { width } : {}).output({ format, quality });
+            return result.response();
+          },
+        }, allowedWidths);
+      }
+
+      // Delegate everything else to vinext, forwarding ctx so that
+      // ctx.waitUntil() is available to background cache writes and
+      // other deferred work via getRequestExecutionContext().
+      return handler.fetch(request, env, ctx);
+    } catch (e) {
+      console.log("RESOLVER ERROR", e)
+      throw e
     }
+    // Expose wrangler vars to process.env for SDKs that read at request time.
 
-    const url = new URL(request.url);
-
-    // Image optimization via Cloudflare Images binding.
-    // The parseImageParams validation inside handleImageOptimization
-    // normalizes backslashes and validates the origin hasn't changed.
-    if (url.pathname === "/_vinext/image") {
-      const allowedWidths = [...DEFAULT_DEVICE_SIZES, ...DEFAULT_IMAGE_SIZES];
-      return handleImageOptimization(request, {
-        fetchAsset: (path) => env.ASSETS.fetch(new Request(new URL(path, request.url))),
-        transformImage: async (body, { width, format, quality }) => {
-          const result = await env.IMAGES.input(body).transform(width > 0 ? { width } : {}).output({ format, quality });
-          return result.response();
-        },
-      }, allowedWidths);
-    }
-
-    // Delegate everything else to vinext, forwarding ctx so that
-    // ctx.waitUntil() is available to background cache writes and
-    // other deferred work via getRequestExecutionContext().
-    return handler.fetch(request, env, ctx);
   },
 };
 

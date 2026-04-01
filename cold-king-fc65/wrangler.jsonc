@@ -5,6 +5,7 @@
 {
 	"$schema": "node_modules/wrangler/config-schema.json",
 	"name": "cold-king-fc65",
+	"account_id": "630398f7cca5a714a459a22c46cd6b52",
 	"main": "src/index.ts",
 	"compatibility_date": "2026-03-10",
 	"observability": {
