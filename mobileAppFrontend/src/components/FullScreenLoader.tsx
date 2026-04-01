@@ -1,9 +1,10 @@
-import { ActivityIndicator, SafeAreaView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { colors, fonts } from "@/lib/theme";
 
 export function FullScreenLoader({ label }: { label: string }) {
   return (
-    <SafeAreaView style={styles.page}>
+    <SafeAreaView edges={["top", "left", "right", "bottom"]} style={styles.page}>
       <View style={styles.content}>
         <ActivityIndicator size="large" color={colors.primary} />
         <Text style={styles.label}>{label}</Text>

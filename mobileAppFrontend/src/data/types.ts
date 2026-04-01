@@ -22,6 +22,7 @@ export type Exam = {
   duration: number;
   scheduledDate: string;
   startTime: string;
+  questionCount: number;
   questions: Question[];
 };
 
@@ -58,6 +59,7 @@ export type Submission = {
 };
 
 export type StudentProfile = {
+  id: string;
   fullName: string;
   firstName: string;
   lastName: string;

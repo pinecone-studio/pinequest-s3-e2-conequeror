@@ -1,4 +1,5 @@
-import { SafeAreaView, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { colors, fonts, shadows } from "@/lib/theme";
 
 export function ConfigErrorScreen({
@@ -9,7 +10,7 @@ export function ConfigErrorScreen({
   message: string;
 }) {
   return (
-    <SafeAreaView style={styles.page}>
+    <SafeAreaView edges={["top", "left", "right", "bottom"]} style={styles.page}>
       <View style={styles.card}>
         <Text style={styles.title}>{title}</Text>
         <Text style={styles.message}>{message}</Text>

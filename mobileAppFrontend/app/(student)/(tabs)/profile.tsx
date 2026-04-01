@@ -1,4 +1,5 @@
-import { Alert, SafeAreaView, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, ScrollView, StyleSheet, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { StatusCard } from "@/components/StatusCard";
 import { useAppData } from "@/data/app-data";
@@ -16,10 +17,15 @@ function getInitials(fullName: string) {
 }
 
 export default function ProfileScreen() {
-  const { student, submissions, availableExams, resetData } = useAppData();
+  const { student, submissions, availableExams, isRemoteData, resetData } = useAppData();
 
   const handleReset = () => {
-    Alert.alert("Өгөгдөл цэвэрлэх", "Өгсөн шалгалтын төхөөрөмж дээр хадгалсан үр дүнг цэвэрлэх үү?", [
+    Alert.alert(
+      isRemoteData ? "Өгөгдөл шинэчлэх" : "Өгөгдөл цэвэрлэх",
+      isRemoteData
+        ? "Backend-ээс хамгийн сүүлийн өгөгдлийг дахин ачаалах уу?"
+        : "Өгсөн шалгалтын төхөөрөмж дээр хадгалсан үр дүнг цэвэрлэх үү?",
+      [
       {
         text: "Болих",
         style: "cancel",
@@ -31,11 +37,12 @@ export default function ProfileScreen() {
           resetData();
         },
       },
-    ]);
+      ],
+    );
   };
 
   return (
-    <SafeAreaView style={styles.page}>
+    <SafeAreaView edges={["top", "left", "right"]} style={styles.page}>
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.profileCard}>
           <View style={styles.avatar}>
@@ -64,10 +71,18 @@ export default function ProfileScreen() {
 
         <StatusCard
           tone="info"
-          message="Энэ хэсэг одоогоор төхөөрөмж дээрх туршилтын өгөгдлөөр ажиллаж байна. Жинхэнэ нэвтрэлт холбогдоход энд профайлын бодит өгөгдөл орж ирнэ."
+          message={
+            isRemoteData
+              ? "Энэ профайлын мэдээлэл одоогоор backend-ээс ачаалагдаж байна."
+              : "Энэ хэсэг одоогоор төхөөрөмж дээрх туршилтын өгөгдлөөр ажиллаж байна."
+          }
         />
 
-        <PrimaryButton label="Үр дүн цэвэрлэх" onPress={handleReset} variant="secondary" />
+        <PrimaryButton
+          label={isRemoteData ? "Өгөгдөл шинэчлэх" : "Үр дүн цэвэрлэх"}
+          onPress={handleReset}
+          variant="secondary"
+        />
       </ScrollView>
     </SafeAreaView>
   );

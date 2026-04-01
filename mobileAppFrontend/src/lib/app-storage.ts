@@ -79,6 +79,7 @@ function isStudentProfile(value: unknown): value is StudentProfile {
   const student = value as StudentProfile;
 
   return (
+    typeof student.id === "string" &&
     typeof student.fullName === "string" &&
     typeof student.firstName === "string" &&
     typeof student.lastName === "string" &&
