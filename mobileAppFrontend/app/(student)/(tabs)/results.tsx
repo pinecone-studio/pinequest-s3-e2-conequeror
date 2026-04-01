@@ -4,11 +4,12 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { EmptyState } from "@/components/EmptyState";
 import { StudentExamCard } from "@/components/StudentExamCard";
 import { useAppData } from "@/data/app-data";
+import { buildStudentExamSubjectOrder, formatStudentExamTimestamp } from "@/lib/student-exam";
 import { colors, fonts, shadows } from "@/lib/theme";
-import { formatStudentExamTimestamp } from "@/lib/student-exam";
 
 export default function ResultsScreen() {
   const { submissions } = useAppData();
+  const subjectOrder = buildStudentExamSubjectOrder(submissions);
 
   return (
     <SafeAreaView edges={["top", "left", "right"]} style={styles.page}>
@@ -36,6 +37,7 @@ export default function ResultsScreen() {
                 scheduledDate={formatStudentExamTimestamp(submission.submittedAt)}
                 startTime={`${submission.correctAnswers} зөв`}
                 footerLabel={`${submission.scorePercent}%`}
+                subjectOrder={subjectOrder}
                 onPress={() => {
                   router.push(`/(student)/results/${submission.id}`);
                 }}

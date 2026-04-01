@@ -5,7 +5,12 @@ import { Image, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } 
 import { SafeAreaView } from "react-native-safe-area-context";
 import { EmptyState } from "@/components/EmptyState";
 import { useAppData } from "@/data/app-data";
-import { formatScheduledDate, formatScheduledTime, getStudentExamPresentation } from "@/lib/student-exam";
+import {
+  buildStudentExamSubjectOrder,
+  formatScheduledDate,
+  formatScheduledTime,
+  getStudentExamPresentation,
+} from "@/lib/student-exam";
 import { colors, fonts, shadows } from "@/lib/theme";
 
 const learningMsLogo = require("../../../assets/learning-ms-logo.png");
@@ -17,6 +22,7 @@ export default function StudentHomeScreen() {
 
   const scheduledExams = useMemo(() => [] as typeof availableExams, []);
   const visibleExams = selectedTab === "active" ? availableExams : scheduledExams;
+  const subjectOrder = useMemo(() => buildStudentExamSubjectOrder(visibleExams), [visibleExams]);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -81,6 +87,7 @@ export default function StudentHomeScreen() {
               <HomeExamCard
                 key={exam.id}
                 exam={exam}
+                subjectOrder={subjectOrder}
                 onPress={() => {
                   if (selectedTab === "active") {
                     router.push(`/(student)/exam/${exam.id}`);
@@ -209,18 +216,18 @@ const styles = StyleSheet.create({
   },
   cardSubject: {
     fontFamily: fonts.display.semibold,
-    fontSize: 22,
+    fontSize: 20,
     color: colors.textPrimary,
   },
   cardTopic: {
     fontFamily: fonts.sans.regular,
-    fontSize: 20,
+    fontSize: 18,
     color: colors.textMuted,
   },
   cardGrade: {
     marginTop: 14,
     fontFamily: fonts.sans.medium,
-    fontSize: 14,
+    fontSize: 16,
     color: colors.textPrimary,
   },
   cardChipRow: {
@@ -273,6 +280,7 @@ const styles = StyleSheet.create({
 
 function HomeExamCard({
   exam,
+  subjectOrder,
   onPress,
 }: {
   exam: {
@@ -285,13 +293,21 @@ function HomeExamCard({
     scheduledDate: string;
     startTime: string;
   };
+  subjectOrder: string[];
   onPress: () => void;
 }) {
-  const presentation = getStudentExamPresentation(exam.subject);
+  const presentation = getStudentExamPresentation(exam.subject, subjectOrder);
 
   return (
     <Pressable
-      style={({ pressed }) => [styles.card, { backgroundColor: presentation.background }, pressed ? styles.cardPressed : null]}
+      style={({ pressed }) => [
+        styles.card,
+        {
+          backgroundColor: presentation.background,
+          borderColor: presentation.borderColor,
+        },
+        pressed ? styles.cardPressed : null,
+      ]}
       onPress={onPress}
     >
       <View style={styles.cardTop}>

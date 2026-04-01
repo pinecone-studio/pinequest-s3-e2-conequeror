@@ -3,20 +3,89 @@ import type { MaterialCommunityIcons } from "@expo/vector-icons";
 
 type IconName = ComponentProps<typeof MaterialCommunityIcons>["name"];
 
-export function getStudentExamPresentation(subject: string): {
+const orderedSubjectPalette = [
+  {
+    background: "#E8E4F8",
+    iconBackground: "#D4CEFE",
+    borderColor: "#CFC6FF",
+  },
+  {
+    background: "#DFF0F8",
+    iconBackground: "#C8E4F4",
+    borderColor: "#B9DDEE",
+  },
+  {
+    background: "#F8E2EF",
+    iconBackground: "#F1CBE2",
+    borderColor: "#E8BCD8",
+  },
+  {
+    background: "#E3F5E8",
+    iconBackground: "#C9EBD3",
+    borderColor: "#BEE1C8",
+  },
+] as const;
+
+function normalizeSubject(subject: string) {
+  return subject.trim().toLowerCase();
+}
+
+export function buildStudentExamSubjectOrder(
+  items: ReadonlyArray<{ subject: string }>,
+) {
+  const seen = new Set<string>();
+  const orderedSubjects: string[] = [];
+
+  for (const item of items) {
+    const normalized = normalizeSubject(item.subject);
+
+    if (!normalized || seen.has(normalized)) {
+      continue;
+    }
+
+    seen.add(normalized);
+    orderedSubjects.push(normalized);
+  }
+
+  return orderedSubjects;
+}
+
+export function getStudentExamPresentation(
+  subject: string,
+  orderedSubjects?: ReadonlyArray<string>,
+): {
   subjectLabel: string;
   iconName: IconName;
   background: string;
   iconBackground: string;
+  borderColor: string;
+};
+
+export function getStudentExamPresentation(
+  subject: string,
+  orderedSubjects?: ReadonlyArray<string>,
+): {
+  subjectLabel: string;
+  iconName: IconName;
+  background: string;
+  iconBackground: string;
+  borderColor: string;
 } {
-  const normalized = subject.trim().toLowerCase();
+  const normalized = normalizeSubject(subject);
+
+  const orderedIndex = orderedSubjects?.indexOf(normalized) ?? -1;
+  const orderedPalette =
+    orderedIndex >= 0
+      ? orderedSubjectPalette[orderedIndex % orderedSubjectPalette.length]
+      : null;
 
   if (normalized === "math") {
     return {
       subjectLabel: "Математик",
       iconName: "calculator-variant-outline",
-      background: "#DFF0F8",
-      iconBackground: "#C8E4F4",
+      background: orderedPalette?.background ?? "#DFF0F8",
+      iconBackground: orderedPalette?.iconBackground ?? "#C8E4F4",
+      borderColor: orderedPalette?.borderColor ?? "#B9DDEE",
     };
   }
 
@@ -24,8 +93,9 @@ export function getStudentExamPresentation(subject: string): {
     return {
       subjectLabel: "Хими",
       iconName: "flask-outline",
-      background: "#F0E4F8",
-      iconBackground: "#E0CEFE",
+      background: orderedPalette?.background ?? "#F0E4F8",
+      iconBackground: orderedPalette?.iconBackground ?? "#E0CEFE",
+      borderColor: orderedPalette?.borderColor ?? "#D9C8F6",
     };
   }
 
@@ -33,8 +103,9 @@ export function getStudentExamPresentation(subject: string): {
     return {
       subjectLabel: "Англи",
       iconName: "book-education-outline",
-      background: "#E3F5E8",
-      iconBackground: "#C9EBD3",
+      background: orderedPalette?.background ?? "#E3F5E8",
+      iconBackground: orderedPalette?.iconBackground ?? "#C9EBD3",
+      borderColor: orderedPalette?.borderColor ?? "#BEE1C8",
     };
   }
 
@@ -42,8 +113,9 @@ export function getStudentExamPresentation(subject: string): {
     return {
       subjectLabel: "Физик",
       iconName: "atom-variant",
-      background: "#E8F1FF",
-      iconBackground: "#D5E5FF",
+      background: orderedPalette?.background ?? "#E8F1FF",
+      iconBackground: orderedPalette?.iconBackground ?? "#D5E5FF",
+      borderColor: orderedPalette?.borderColor ?? "#C8DCF8",
     };
   }
 
@@ -51,16 +123,18 @@ export function getStudentExamPresentation(subject: string): {
     return {
       subjectLabel: "Иргэний боловсрол",
       iconName: "account-school-outline",
-      background: "#F8E2EF",
-      iconBackground: "#F1CBE2",
+      background: orderedPalette?.background ?? "#F8E2EF",
+      iconBackground: orderedPalette?.iconBackground ?? "#F1CBE2",
+      borderColor: orderedPalette?.borderColor ?? "#E8BCD8",
     };
   }
 
   return {
     subjectLabel: "Нийгэм",
     iconName: "notebook-outline",
-    background: "#E8E4F8",
-    iconBackground: "#D4CEFE",
+    background: orderedPalette?.background ?? "#E8E4F8",
+    iconBackground: orderedPalette?.iconBackground ?? "#D4CEFE",
+    borderColor: orderedPalette?.borderColor ?? "#CFC6FF",
   };
 }
 

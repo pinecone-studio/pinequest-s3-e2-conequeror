@@ -13,6 +13,7 @@ export function StudentExamCard({
   scheduledDate,
   startTime,
   footerLabel = "Эхлэх",
+  subjectOrder,
   onPress,
 }: {
   subject: string;
@@ -23,15 +24,19 @@ export function StudentExamCard({
   scheduledDate?: string | null;
   startTime?: string | null;
   footerLabel?: string;
+  subjectOrder?: string[];
   onPress: () => void;
 }) {
-  const presentation = getStudentExamPresentation(subject);
+  const presentation = getStudentExamPresentation(subject, subjectOrder);
 
   return (
     <Pressable
       style={({ pressed }) => [
         styles.card,
-        { backgroundColor: presentation.background },
+        {
+          backgroundColor: presentation.background,
+          borderColor: presentation.borderColor,
+        },
         pressed ? styles.pressed : null,
       ]}
       onPress={onPress}
