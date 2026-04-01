@@ -18,6 +18,7 @@ type GraphqlResponse<TData> = {
 
 type RemoteStudentProfile = {
   studentById: {
+    id: string;
     firstName: string;
     lastName: string;
     email: string;
@@ -124,6 +125,7 @@ type SubmitStudentExamResponse = {
 const GET_CURRENT_STUDENT = `
   query GetCurrentStudentProfile {
     studentById {
+      id
       firstName
       lastName
       email
@@ -301,6 +303,7 @@ async function fetchGraphql<TData>(query: string, variables?: Record<string, unk
 
 function mapStudentProfile(payload: RemoteStudentProfile["studentById"]): StudentProfile {
   return {
+    id: payload.id,
     fullName: [payload.lastName, payload.firstName].filter(Boolean).join(" "),
     firstName: payload.firstName,
     lastName: payload.lastName,
@@ -308,6 +311,23 @@ function mapStudentProfile(payload: RemoteStudentProfile["studentById"]): Studen
     role: "student",
     phone: payload.phone,
     inviteCode: payload.inviteCode,
+  };
+}
+
+function mapAvailableExamSummary(
+  payload: RemoteAvailableExams["availableExamsForStudent"][number],
+): Exam {
+  return {
+    id: payload.id,
+    title: payload.title,
+    subject: payload.subject,
+    description: payload.description ?? "",
+    grade: payload.grade,
+    duration: payload.duration,
+    scheduledDate: payload.scheduledDate ?? "",
+    startTime: payload.startTime ?? "",
+    questionCount: payload.questionCount,
+    questions: [],
   };
 }
 
@@ -321,6 +341,7 @@ function mapExam(payload: RemoteExamDetail["studentExamDetail"]): Exam {
     duration: payload.duration,
     scheduledDate: payload.scheduledDate ?? "",
     startTime: payload.startTime ?? "",
+    questionCount: payload.questionCount,
     questions: payload.questions.map((question) => ({
       id: question.id,
       type: "mcq",
@@ -333,6 +354,26 @@ function mapExam(payload: RemoteExamDetail["studentExamDetail"]): Exam {
         isCorrect: false,
       })),
     })),
+  };
+}
+
+function mapSubmissionSummary(
+  payload: RemoteSubmissionSummaries["myExamSubmissions"][number],
+): Submission {
+  return {
+    id: payload.id,
+    examId: payload.examId,
+    title: payload.title,
+    subject: payload.subject,
+    grade: payload.grade,
+    duration: payload.duration,
+    questionCount: payload.questionCount,
+    correctAnswers: payload.correctAnswers,
+    scorePercent: payload.scorePercent,
+    submittedAt: payload.submittedAt,
+    scheduledDate: null,
+    startTime: null,
+    answers: [],
   };
 }
 
@@ -373,9 +414,9 @@ export async function fetchRemoteStudentProfile() {
   return mapStudentProfile(payload.studentById);
 }
 
-export async function fetchRemoteAvailableExamIds() {
+export async function fetchRemoteAvailableExams() {
   const payload = await fetchGraphql<RemoteAvailableExams>(GET_AVAILABLE_EXAMS);
-  return payload.availableExamsForStudent.map((exam) => exam.id);
+  return payload.availableExamsForStudent.map(mapAvailableExamSummary);
 }
 
 export async function fetchRemoteExamById(examId: string) {
@@ -383,9 +424,9 @@ export async function fetchRemoteExamById(examId: string) {
   return mapExam(payload.studentExamDetail);
 }
 
-export async function fetchRemoteSubmissionIds() {
+export async function fetchRemoteSubmissions() {
   const payload = await fetchGraphql<RemoteSubmissionSummaries>(GET_MY_EXAM_SUBMISSIONS);
-  return payload.myExamSubmissions.map((submission) => submission.id);
+  return payload.myExamSubmissions.map(mapSubmissionSummary);
 }
 
 export async function fetchRemoteSubmissionById(submissionId: string) {

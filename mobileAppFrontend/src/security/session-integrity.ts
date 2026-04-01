@@ -1,4 +1,5 @@
 import * as SecureStore from "expo-secure-store";
+import { getMobileRemoteConfig } from "@/lib/mobile-graphql";
 import { SessionBackendStatus } from "@/security/types";
 
 const SESSION_QUEUE_KEY = "pinequest_session_integrity_queue";
@@ -19,6 +20,11 @@ type SessionAction = {
 
 type SessionBackendResponse = {
   status?: SessionBackendStatus;
+};
+
+type SessionBackendConfig = {
+  endpoint: string;
+  headers: Record<string, string>;
 };
 
 type CreateSessionIntegrityOptions = {
@@ -71,24 +77,47 @@ async function enqueueAction(action: SessionAction) {
   await writeQueue([...current, action]);
 }
 
-function getSessionIntegrityEndpoint() {
-  return process.env.EXPO_PUBLIC_SESSION_INTEGRITY_URL?.trim() ?? "";
+function getSessionBackendConfig(): SessionBackendConfig | null {
+  const configuredEndpoint = process.env.EXPO_PUBLIC_SESSION_INTEGRITY_URL?.trim() ?? "";
+
+  if (configuredEndpoint) {
+    return {
+      endpoint: configuredEndpoint,
+      headers: {
+        "Content-Type": "application/json",
+      },
+    };
+  }
+
+  const remoteConfig = getMobileRemoteConfig();
+
+  if (!remoteConfig) {
+    return null;
+  }
+
+  return {
+    endpoint: remoteConfig.graphqlUrl.replace(/\/graphql\/?$/i, "/session-integrity"),
+    headers: {
+      "Content-Type": "application/json",
+      "x-mobile-demo-key": remoteConfig.accessKey,
+      "x-mobile-student-email": remoteConfig.studentEmail,
+      "x-mobile-student-invite-code": remoteConfig.studentInviteCode,
+    },
+  };
 }
 
 async function postSessionAction(action: SessionAction): Promise<SessionBackendStatus> {
-  const endpoint = getSessionIntegrityEndpoint();
+  const backendConfig = getSessionBackendConfig();
 
-  if (!endpoint) {
+  if (!backendConfig) {
     await enqueueAction(action);
     return "queued_offline";
   }
 
   try {
-    const response = await fetch(endpoint, {
+    const response = await fetch(backendConfig.endpoint, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: backendConfig.headers,
       body: JSON.stringify(action),
     });
 
@@ -106,9 +135,9 @@ async function postSessionAction(action: SessionAction): Promise<SessionBackendS
 }
 
 async function flushQueuedActions() {
-  const endpoint = getSessionIntegrityEndpoint();
+  const backendConfig = getSessionBackendConfig();
 
-  if (!endpoint) {
+  if (!backendConfig) {
     return "skipped" as SessionBackendStatus;
   }
 
@@ -122,11 +151,9 @@ async function flushQueuedActions() {
 
   for (const action of queue) {
     try {
-      const response = await fetch(endpoint, {
+      const response = await fetch(backendConfig.endpoint, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: backendConfig.headers,
         body: JSON.stringify(action),
       });
 

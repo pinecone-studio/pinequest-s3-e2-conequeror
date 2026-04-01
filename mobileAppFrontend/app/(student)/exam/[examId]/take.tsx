@@ -26,12 +26,14 @@ function getRemainingSeconds(durationMinutes: number, startedAt: number) {
 export default function TakeExamScreen() {
   const params = useLocalSearchParams<{ examId: string }>();
   const examId = typeof params.examId === "string" ? params.examId : "";
-  const { getExamById, submitExam, student } = useAppData();
+  const { ensureExamLoaded, getExamById, submitExam, student } = useAppData();
   const [secondsLeft, setSecondsLeft] = useState(0);
   const [answers, setAnswers] = useState<Record<string, StudentAnswerDraft>>({});
   const [submitError, setSubmitError] = useState("");
   const [startedAt, setStartedAt] = useState<number | null>(null);
   const [isRestoring, setIsRestoring] = useState(true);
+  const [isExamLoading, setIsExamLoading] = useState(false);
+  const [examLoadError, setExamLoadError] = useState("");
   const [submitLoading, setSubmitLoading] = useState(false);
   const autoSubmittedRef = useRef(false);
   const answersRef = useRef<Record<string, StudentAnswerDraft>>({});
@@ -63,7 +65,7 @@ export default function TakeExamScreen() {
     faceStatus,
     nativeMonitoringAvailable,
   } = useExamIntegrity({
-    userId: student.email,
+    userId: student.id,
     examId,
     onAutoSubmit: async (reason) => {
       await submitExamRef.current(
@@ -81,7 +83,35 @@ export default function TakeExamScreen() {
   }, [startedAt]);
 
   useEffect(() => {
-    if (!exam) {
+    if (!exam || exam.questions.length > 0 || exam.questionCount === 0) {
+      return;
+    }
+
+    let cancelled = false;
+    setIsExamLoading(true);
+    setExamLoadError("");
+
+    void ensureExamLoaded(exam.id)
+      .catch((caughtError) => {
+        if (!cancelled) {
+          setExamLoadError(
+            caughtError instanceof Error ? caughtError.message : "Шалгалтын асуултыг ачаалж чадсангүй.",
+          );
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setIsExamLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [ensureExamLoaded, exam]);
+
+  useEffect(() => {
+    if (!exam || exam.questions.length === 0 && exam.questionCount > 0) {
       return;
     }
 
@@ -227,8 +257,18 @@ export default function TakeExamScreen() {
     void submitExamRef.current("manual");
   };
 
-  if (isRestoring) {
+  if (isExamLoading || isRestoring) {
     return <FullScreenLoader label="Шалгалтын явцыг бэлдэж байна..." />;
+  }
+
+  if (examLoadError) {
+    return (
+      <SafeAreaView style={styles.page}>
+        <View style={styles.content}>
+          <StatusCard tone="error" message={examLoadError} />
+        </View>
+      </SafeAreaView>
+    );
   }
 
   if (!exam || shuffledQuestions.length === 0) {

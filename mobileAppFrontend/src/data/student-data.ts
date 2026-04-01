@@ -1,6 +1,7 @@
 import type { Exam, StudentProfile, Submission } from "@/data/types";
 
 export const studentProfile: StudentProfile = {
+  id: "student-demo-001",
   fullName: "Б. Тэмүүлэн",
   firstName: "Тэмүүлэн",
   lastName: "Б",
@@ -20,6 +21,7 @@ export const examCatalog: Exam[] = [
     duration: 20,
     scheduledDate: "2026-03-31",
     startTime: "09:00",
+    questionCount: 3,
     questions: [
       {
         id: "math-q1",
@@ -68,6 +70,7 @@ export const examCatalog: Exam[] = [
     duration: 15,
     scheduledDate: "2026-03-31",
     startTime: "14:30",
+    questionCount: 3,
     questions: [
       {
         id: "eng-q1",

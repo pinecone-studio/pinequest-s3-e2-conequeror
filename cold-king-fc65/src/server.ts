@@ -149,6 +149,20 @@ async function getMobileDemoRequestAuth(
 	};
 }
 
+export async function getResolvedRequestAuth(
+	request: Request,
+	env: WorkerBindings,
+	db = getDb(env),
+): Promise<GraphQLContext["auth"]> {
+	const requestAuth = await getRequestAuth(request, env);
+
+	if (requestAuth.isAuthenticated) {
+		return requestAuth;
+	}
+
+	return (await getMobileDemoRequestAuth(request, env, db)) ?? requestAuth;
+}
+
 export const yoga = createYoga<{ env: WorkerBindings }, GraphQLContext>({
 	schema: createSchema({
 		typeDefs,
@@ -156,11 +170,7 @@ export const yoga = createYoga<{ env: WorkerBindings }, GraphQLContext>({
 	}),
 	context: async ({ request, env }) => {
 		const db = getDb(env);
-		const requestAuth = await getRequestAuth(request, env);
-		const auth =
-			requestAuth.isAuthenticated
-				? requestAuth
-				: (await getMobileDemoRequestAuth(request, env, db)) ?? requestAuth;
+		const auth = await getResolvedRequestAuth(request, env, db);
 
 		return {
 			env,

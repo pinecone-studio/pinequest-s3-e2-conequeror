@@ -1,6 +1,7 @@
 import { router } from "expo-router";
 import { useState } from "react";
-import { RefreshControl, SafeAreaView, ScrollView, StyleSheet, Text, View } from "react-native";
+import { RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { EmptyState } from "@/components/EmptyState";
 import { StatusCard } from "@/components/StatusCard";
 import { StudentExamCard } from "@/components/StudentExamCard";
@@ -22,7 +23,7 @@ export default function StudentHomeScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.page}>
+    <SafeAreaView edges={["top", "left", "right"]} style={styles.page}>
       <ScrollView
         contentContainerStyle={styles.content}
         refreshControl={
@@ -63,7 +64,7 @@ export default function StudentHomeScreen() {
                 title={exam.title}
                 grade={exam.grade}
                 duration={exam.duration}
-                questionCount={exam.questions.length}
+                questionCount={exam.questionCount}
                 scheduledDate={exam.scheduledDate}
                 startTime={exam.startTime}
                 onPress={() => router.push(`/(student)/exam/${exam.id}`)}

@@ -1,9 +1,42 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import { eq } from "drizzle-orm";
 import { getCorsOrigins, type WorkerBindings } from "./config/runtime";
-import { getRequestAuth, yoga } from "./server";
+import { getDb } from "./db/client";
+import { studentExamSessions } from "./db/schemas/student-exam-session.schema";
+import { getRequestAuth, getResolvedRequestAuth, yoga } from "./server";
 
 const app = new Hono<{ Bindings: WorkerBindings }>();
+const SESSION_INTEGRITY_PATH = "/session-integrity";
+
+type SessionIntegrityAction = {
+	id: string;
+	type: "start" | "heartbeat" | "stop";
+	userId: string;
+	examId: string;
+	deviceId: string;
+	sessionId: string;
+	timestamp: number;
+};
+
+function isSessionIntegrityAction(value: unknown): value is SessionIntegrityAction {
+	if (!value || typeof value !== "object") {
+		return false;
+	}
+
+	const action = value as Record<string, unknown>;
+
+	return (
+		typeof action.id === "string" &&
+		(action.type === "start" || action.type === "heartbeat" || action.type === "stop") &&
+		typeof action.userId === "string" &&
+		typeof action.examId === "string" &&
+		typeof action.deviceId === "string" &&
+		typeof action.sessionId === "string" &&
+		typeof action.timestamp === "number" &&
+		Number.isFinite(action.timestamp)
+	);
+}
 
 function sanitizePathSegment(value: string) {
 	return value.replace(/[^a-zA-Z0-9._-]/g, "_");
@@ -29,11 +62,121 @@ app.use("/uploads/*", (c, next) =>
 	})(c, next),
 );
 
+app.use(SESSION_INTEGRITY_PATH, (c, next) =>
+	cors({
+		origin: getCorsOrigins(c.env),
+		allowHeaders: [
+			"Content-Type",
+			"Authorization",
+			"x-mobile-demo-key",
+			"x-mobile-student-email",
+			"x-mobile-student-invite-code",
+		],
+		allowMethods: ["POST", "OPTIONS"],
+		credentials: true,
+	})(c, next),
+);
+
 app.all("/graphql", (c) =>
 	yoga.fetch(c.req.raw, {
 		env: c.env,
 	}),
 );
+
+app.post(SESSION_INTEGRITY_PATH, async (c) => {
+	const db = getDb(c.env);
+	const auth = await getResolvedRequestAuth(c.req.raw, c.env, db);
+
+	if (!auth.isAuthenticated || !auth.userId) {
+		return c.json({ error: "Unauthorized" }, 401);
+	}
+
+	let body: unknown;
+
+	try {
+		body = await c.req.json();
+	} catch {
+		return c.json({ error: "Invalid JSON body." }, 400);
+	}
+
+	if (!isSessionIntegrityAction(body)) {
+		return c.json({ error: "Invalid session payload." }, 400);
+	}
+
+	const action = body;
+
+	if (action.userId !== auth.userId) {
+		return c.json({ error: "Session user mismatch." }, 403);
+	}
+
+	const sessionKey = `${action.userId}::${action.examId}`;
+	const now = Date.now();
+	const existing = await db
+		.select()
+		.from(studentExamSessions)
+		.where(eq(studentExamSessions.id, sessionKey))
+		.get();
+
+	if (!existing) {
+		if (action.type === "stop") {
+			return c.json({ status: "ok" as const });
+		}
+
+		await db.insert(studentExamSessions).values({
+			id: sessionKey,
+			studentId: action.userId,
+			examId: action.examId,
+			sessionId: action.sessionId,
+			deviceId: action.deviceId,
+			startedAt: action.timestamp,
+			lastHeartbeatAt: action.timestamp,
+			lastActionAt: action.timestamp,
+			createdAt: now,
+			updatedAt: now,
+		});
+
+		return c.json({ status: "ok" as const });
+	}
+
+	const isSameSession =
+		existing.sessionId === action.sessionId && existing.deviceId === action.deviceId;
+
+	if (!isSameSession) {
+		if (action.type !== "start" || action.timestamp <= existing.lastActionAt) {
+			return c.json({ status: "replaced_by_other_device" as const });
+		}
+
+		await db
+			.update(studentExamSessions)
+			.set({
+				sessionId: action.sessionId,
+				deviceId: action.deviceId,
+				startedAt: action.timestamp,
+				lastHeartbeatAt: action.timestamp,
+				lastActionAt: action.timestamp,
+				updatedAt: now,
+			})
+			.where(eq(studentExamSessions.id, sessionKey));
+
+		return c.json({ status: "ok" as const });
+	}
+
+	if (action.type === "stop") {
+		await db.delete(studentExamSessions).where(eq(studentExamSessions.id, sessionKey));
+		return c.json({ status: "ok" as const });
+	}
+
+	await db
+		.update(studentExamSessions)
+		.set({
+			lastHeartbeatAt: action.timestamp,
+			lastActionAt: action.timestamp,
+			updatedAt: now,
+		})
+		.where(eq(studentExamSessions.id, sessionKey));
+
+	return c.json({ status: "ok" as const });
+});
 
 app.post("/uploads/question-image", async (c) => {
 	if (!c.env.exam_media) {

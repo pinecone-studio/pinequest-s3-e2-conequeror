@@ -1,6 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
-import { Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useEffect, useState } from "react";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { FullScreenLoader } from "@/components/FullScreenLoader";
 import { MathText } from "@/components/MathText";
 import { StatusCard } from "@/components/StatusCard";
 import { useAppData } from "@/data/app-data";
@@ -31,30 +34,66 @@ function getChoiceTone(answer: SubmissionAnswer, optionId: string) {
 export default function ResultDetailScreen() {
   const params = useLocalSearchParams<{ submissionId: string }>();
   const submissionId = typeof params.submissionId === "string" ? params.submissionId : "";
-  const { getSubmissionById } = useAppData();
+  const { ensureSubmissionLoaded, getSubmissionById } = useAppData();
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState("");
   const detail = getSubmissionById(submissionId);
+
+  useEffect(() => {
+    if (!submissionId || !detail || detail.answers.length > 0) {
+      return;
+    }
+
+    let cancelled = false;
+    setIsLoading(true);
+    setLoadError("");
+
+    void ensureSubmissionLoaded(submissionId)
+      .catch((caughtError) => {
+        if (!cancelled) {
+          setLoadError(
+            caughtError instanceof Error ? caughtError.message : "Задлан мэдээллийг ачаалж чадсангүй.",
+          );
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setIsLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [detail, ensureSubmissionLoaded, submissionId]);
+
+  if (detail && detail.answers.length === 0 && isLoading) {
+    return <FullScreenLoader label="Задлан мэдээллийг ачаалж байна..." />;
+  }
 
   if (!detail) {
     return (
-      <SafeAreaView style={styles.page}>
+      <SafeAreaView edges={["top", "left", "right"]} style={styles.page}>
         <View style={styles.content}>
           <Pressable style={styles.backButton} onPress={() => router.back()}>
             <Ionicons name="chevron-back" size={18} color={colors.textPrimary} />
             <Text style={styles.backText}>Буцах</Text>
           </Pressable>
-          <StatusCard tone="error" message="Задлан харах мэдээлэл олдсонгүй." />
+          <StatusCard tone="error" message={loadError || "Задлан харах мэдээлэл олдсонгүй."} />
         </View>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.page}>
+    <SafeAreaView edges={["top", "left", "right"]} style={styles.page}>
       <ScrollView contentContainerStyle={styles.content}>
         <Pressable style={styles.backButton} onPress={() => router.back()}>
           <Ionicons name="chevron-back" size={18} color={colors.textPrimary} />
           <Text style={styles.backText}>Буцах</Text>
         </Pressable>
+
+        {loadError ? <StatusCard tone="warning" message={loadError} /> : null}
 
         <View style={styles.heroCard}>
           <MathText value={detail.title} style={styles.heroTitle} />

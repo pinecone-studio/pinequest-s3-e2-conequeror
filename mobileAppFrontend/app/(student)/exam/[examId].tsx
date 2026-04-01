@@ -1,7 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import { Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { MathText } from "@/components/MathText";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { StatusCard } from "@/components/StatusCard";
@@ -24,10 +25,12 @@ import {
 export default function ExamDetailScreen() {
   const params = useLocalSearchParams<{ examId: string }>();
   const examId = typeof params.examId === "string" ? params.examId : "";
-  const { getExamById } = useAppData();
+  const { ensureExamLoaded, getExamById } = useAppData();
   const [reminderMessage, setReminderMessage] = useState("");
   const [hasReminder, setHasReminder] = useState(false);
   const [isReminderLoading, setIsReminderLoading] = useState(false);
+  const [isExamLoading, setIsExamLoading] = useState(false);
+  const [examLoadError, setExamLoadError] = useState("");
   const exam = getExamById(examId);
   const presentation = useMemo(
     () => (exam ? getStudentExamPresentation(exam.subject) : null),
@@ -61,6 +64,34 @@ export default function ExamDetailScreen() {
     };
   }, [exam]);
 
+  useEffect(() => {
+    if (!exam || exam.questions.length > 0 || exam.questionCount === 0) {
+      return;
+    }
+
+    let cancelled = false;
+    setIsExamLoading(true);
+    setExamLoadError("");
+
+    void ensureExamLoaded(exam.id)
+      .catch((caughtError) => {
+        if (!cancelled) {
+          setExamLoadError(
+            caughtError instanceof Error ? caughtError.message : "Шалгалтын дэлгэрэнгүйг ачаалж чадсангүй.",
+          );
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setIsExamLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [ensureExamLoaded, exam]);
+
   const handleReminderPress = async () => {
     if (!exam) {
       return;
@@ -93,9 +124,38 @@ export default function ExamDetailScreen() {
     }
   };
 
+  const handleStartPress = async () => {
+    if (!exam) {
+      return;
+    }
+
+    if (exam.questionCount > 0 && exam.questions.length === 0) {
+      setIsExamLoading(true);
+      setExamLoadError("");
+
+      try {
+        const loadedExam = await ensureExamLoaded(exam.id);
+
+        if (!loadedExam || loadedExam.questionCount === 0) {
+          setExamLoadError("Шалгалтын асуултыг ачаалж чадсангүй.");
+          return;
+        }
+      } catch (caughtError) {
+        setExamLoadError(
+          caughtError instanceof Error ? caughtError.message : "Шалгалтын асуултыг ачаалж чадсангүй.",
+        );
+        return;
+      } finally {
+        setIsExamLoading(false);
+      }
+    }
+
+    router.push(`/(student)/exam/${exam.id}/take`);
+  };
+
   if (!exam) {
     return (
-      <SafeAreaView style={styles.page}>
+      <SafeAreaView edges={["top", "left", "right"]} style={styles.page}>
         <View style={styles.content}>
           <Pressable style={styles.backButton} onPress={() => router.back()}>
             <Ionicons name="chevron-back" size={18} color={colors.textPrimary} />
@@ -108,7 +168,7 @@ export default function ExamDetailScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.page}>
+    <SafeAreaView edges={["top", "left", "right"]} style={styles.page}>
       <ScrollView contentContainerStyle={styles.content}>
         <Pressable style={styles.backButton} onPress={() => router.back()}>
           <Ionicons name="chevron-back" size={18} color={colors.textPrimary} />
@@ -121,6 +181,7 @@ export default function ExamDetailScreen() {
             message={reminderMessage}
           />
         ) : null}
+        {examLoadError ? <StatusCard tone="error" message={examLoadError} /> : null}
 
         <View style={styles.card}>
           <Text style={styles.subjectBadge}>{presentation?.subjectLabel}</Text>
@@ -134,7 +195,7 @@ export default function ExamDetailScreen() {
             </View>
             <View style={styles.metaChip}>
               <Ionicons name="document-text-outline" size={14} color={colors.textSecondary} />
-              <Text style={styles.metaChipText}>{exam.questions.length} даалгавар</Text>
+              <Text style={styles.metaChipText}>{exam.questionCount} даалгавар</Text>
             </View>
           </View>
 
@@ -177,8 +238,9 @@ export default function ExamDetailScreen() {
           />
           <PrimaryButton
             label="Эхлэх"
-            onPress={() => router.push(`/(student)/exam/${exam.id}/take`)}
-            disabled={exam.questions.length === 0}
+            onPress={() => void handleStartPress()}
+            disabled={isExamLoading || exam.questionCount === 0}
+            loading={isExamLoading}
           />
         </View>
       </ScrollView>

@@ -1,5 +1,6 @@
 import { router } from "expo-router";
-import { SafeAreaView, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { EmptyState } from "@/components/EmptyState";
 import { StudentExamCard } from "@/components/StudentExamCard";
 import { useAppData } from "@/data/app-data";
@@ -10,7 +11,7 @@ export default function ResultsScreen() {
   const { submissions } = useAppData();
 
   return (
-    <SafeAreaView style={styles.page}>
+    <SafeAreaView edges={["top", "left", "right"]} style={styles.page}>
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.statsCard}>
           <Text style={styles.statsValue}>{submissions.length}</Text>
