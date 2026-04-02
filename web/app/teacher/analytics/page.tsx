@@ -431,11 +431,19 @@ export default function TeacherAnalyticsPage() {
       },
     );
 
+  // const chartPoints = useMemo(
+  //   () =>
+  //     [...(selectedExamSummary?.questionInsights ?? [])].sort(
+  //       (left, right) => left.order - right.order,
+  //     ),
+  //   () =>
+  //     [...(selectedExamSummary?.questionInsights ?? [])].sort(
+  //       (left, right) => left.order - right.order,
+  //     ),
+  //   [selectedExamSummary],
+  // );
+
   const chartPoints = useMemo(
-    () =>
-      [...(selectedExamSummary?.questionInsights ?? [])].sort(
-        (left, right) => left.order - right.order,
-      ),
     () =>
       [...(selectedExamSummary?.questionInsights ?? [])].sort(
         (left, right) => left.order - right.order,
@@ -576,12 +584,12 @@ export default function TeacherAnalyticsPage() {
                   onClick={() => setSelectedExamCardKey(item.cardKey)}
                   className={`w-full cursor-pointer rounded-[16px] border bg-white p-4 text-left shadow-[0_4px_12px_rgba(53,31,107,0.04)] transition ${
                     isActive
-                      ? "border-[#CFC2F3] ring-2 ring-[#CFC2F3]/50"
-                      : "border-[#E8E2F1] hover:border-[#D8CCFB]"
+                      ? "border-[#E4E7EF] shadow-[0_6px_16px_rgba(53,31,107,0.06)]"
+                      : "border-[#E4E7EF] hover:border-[#D7DBE6]"
                   }`}
                 >
                   <div className="space-y-3">
-                    <div className="border-l-4 border-[#D8CCFB] pl-2">
+                    <div>
                       <h2 className="text-[17px] font-semibold text-[#2B2633]">
                         {item.title}
                       </h2>
@@ -602,7 +610,7 @@ export default function TeacherAnalyticsPage() {
                     </div>
                   </div>
 
-                  <div className="my-4 h-px bg-[#ECE6F3]" />
+                  <div className="my-4 h-px bg-[#ECEFF5]" />
 
                   <div className="flex items-center justify-between text-[15px] text-[#413B50]">
                     <div className="flex items-center gap-2">
