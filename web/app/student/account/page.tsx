@@ -19,8 +19,11 @@ type AvailableExam = {
   grade: string;
   duration: number;
   questionCount: number;
-  scheduledDate: string;
-  startTime: string;
+  scheduledDate: string | null;
+  startTime: string | null;
+  isLocked?: boolean;
+  minutesUntilStart?: number;
+  startsAtMs?: number | null;
 };
 
 type StudentExamQuestion = {
@@ -56,6 +59,8 @@ type StudentAnswerDraft = {
   answerText?: string;
 };
 
+const PRE_START_LOCK_WINDOW_MS = 10 * 60_000;
+
 const GET_AVAILABLE_EXAMS = gql`
   query GetAvailableExamsForStudent {
     availableExamsForStudent {
@@ -68,6 +73,9 @@ const GET_AVAILABLE_EXAMS = gql`
       startTime
       duration
       questionCount
+      isLocked
+      minutesUntilStart
+      startsAtMs
     }
   }
 `;
@@ -150,9 +158,46 @@ function getExamEndTime(
   )}`;
 }
 
+function getPreStartLockState(
+  exam: Pick<
+    AvailableExam,
+    "startsAtMs" | "isLocked" | "minutesUntilStart"
+  > | null,
+  nowMs: number,
+) {
+  if (!exam) {
+    return { locked: false, minutesUntilStart: 0, secondsUntilStart: 0 };
+  }
+
+  if (typeof exam.startsAtMs === "number") {
+    const startMs = exam.startsAtMs;
+    const lockStartsAt = startMs - PRE_START_LOCK_WINDOW_MS;
+    const locked = nowMs >= lockStartsAt && nowMs < startMs;
+    const secondsUntilStart = locked
+      ? Math.max(1, Math.ceil((startMs - nowMs) / 1000))
+      : 0;
+    const minutesUntilStart = locked
+      ? Math.max(1, Math.ceil(secondsUntilStart / 60))
+      : 0;
+
+    return { locked, minutesUntilStart, secondsUntilStart };
+  }
+
+  const locked = Boolean(exam.isLocked);
+  const minutesUntilStart = locked
+    ? Math.max(1, exam.minutesUntilStart ?? 0)
+    : 0;
+  return {
+    locked,
+    minutesUntilStart,
+    secondsUntilStart: minutesUntilStart * 60,
+  };
+}
+
 export default function StudentAccountPage() {
   const [selectedExamId, setSelectedExamId] = useState<string | null>(null);
   const [startedExamId, setStartedExamId] = useState<string | null>(null);
+  const [currentTimeMs, setCurrentTimeMs] = useState(() => Date.now());
   const [submittedExamName, setSubmittedExamName] = useState<string | null>(
     null,
   );
@@ -176,23 +221,48 @@ export default function StudentAccountPage() {
     console.log(availableExamsData);
   }, [availableExamsData]);
 
+  const availableExams = availableExamsData?.availableExamsForStudent ?? [];
+  const selectedExamSummary = useMemo(
+    () =>
+      selectedExamId
+        ? (availableExams.find((exam) => exam.id === selectedExamId) ?? null)
+        : null,
+    [availableExams, selectedExamId],
+  );
+  const selectedExamLockState = useMemo(
+    () => getPreStartLockState(selectedExamSummary, currentTimeMs),
+    [currentTimeMs, selectedExamSummary],
+  );
+  const shouldSkipExamDetailQuery =
+    !activeExamId || (!startedExamId && selectedExamLockState.locked);
+
   const {
     data: activeExamData,
     loading: activeExamLoading,
     error: activeExamError,
   } = useQuery<StudentExamDetailData>(GET_STUDENT_EXAM_DETAIL, {
     variables: { examId: activeExamId ?? "" },
-    skip: !activeExamId,
+    skip: shouldSkipExamDetailQuery,
   });
   const [submitStudentExam, { loading: submitLoading }] =
     useMutation<SubmitStudentExamData>(SUBMIT_STUDENT_EXAM);
 
-  const availableExams = availableExamsData?.availableExamsForStudent ?? [];
-  const activeExam = activeExamData?.studentExamDetail ?? null;
+  const activeExamDetail = activeExamData?.studentExamDetail ?? null;
+  const activeExam = activeExamDetail ?? selectedExamSummary;
   const questionPalette = useMemo(
-    () => activeExam?.questions.map((question) => question.order) ?? [],
-    [activeExam],
+    () => activeExamDetail?.questions.map((question) => question.order) ?? [],
+    [activeExamDetail],
   );
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setCurrentTimeMs(Date.now());
+    }, 1000);
+
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, []);
 
   useEffect(() => {
     if (!startedExamId) {
@@ -258,17 +328,29 @@ export default function StudentAccountPage() {
       return;
     }
 
+    if (selectedExamLockState.locked) {
+      setSubmitError(
+        `Шалгалт эхлэх хүртэл ${selectedExamLockState.minutesUntilStart} минут үлдсэн тул түгжигдсэн байна.`,
+      );
+      return;
+    }
+
+    if (!activeExamDetail) {
+      setSubmitError("Шалгалтын дэлгэрэнгүй мэдээллийг ачаалж байна.");
+      return;
+    }
+
     setSubmitError("");
     setSubmittedExamName(null);
     setStartedExamId(activeExam.id);
     setExamStartedAt(Date.now());
-    setSecondsLeft(activeExam.duration * 60);
-    setFocusedQuestion(activeExam.questions[0]?.order ?? 1);
+    setSecondsLeft(activeExamDetail.duration * 60);
+    setFocusedQuestion(activeExamDetail.questions[0]?.order ?? 1);
     setAnswers({});
   };
 
   const handleSubmitExam = async () => {
-    if (!activeExam) {
+    if (!activeExamDetail) {
       return;
     }
 
@@ -278,9 +360,9 @@ export default function StudentAccountPage() {
       await submitStudentExam({
         variables: {
           input: {
-            examId: activeExam.id,
+            examId: activeExamDetail.id,
             startedAt: examStartedAt,
-            answers: activeExam.questions.map((question) => ({
+            answers: activeExamDetail.questions.map((question) => ({
               questionId: question.id,
               selectedChoiceId: answers[question.id]?.selectedChoiceId ?? null,
               answerText: answers[question.id]?.answerText?.trim() || null,
@@ -291,7 +373,7 @@ export default function StudentAccountPage() {
 
       await refetchAvailableExams();
       setSubmittedExamName(
-        getStudentExamHeader(activeExam.subject, activeExam.title),
+        getStudentExamHeader(activeExamDetail.subject, activeExamDetail.title),
       );
       setStartedExamId(null);
       setSelectedExamId(null);
@@ -325,7 +407,7 @@ export default function StudentAccountPage() {
     );
   }
 
-  if (startedExamId && activeExamLoading && !activeExam) {
+  if (startedExamId && activeExamLoading && !activeExamDetail) {
     return (
       <div className="flex min-h-[320px] items-center justify-center text-[#6B7280]">
         <Loader2 className="mr-3 h-5 w-5 animate-spin" />
@@ -342,13 +424,16 @@ export default function StudentAccountPage() {
     );
   }
 
-  if (startedExamId && activeExam) {
+  if (startedExamId && activeExamDetail) {
     return (
       <section className="relative left-1/2 -mt-10 min-h-[calc(100vh-72px)] w-screen -translate-x-1/2 bg-[#FCFCFF]">
         <div className="border-b border-[#ECE8F6] bg-white">
           <div className="mx-auto flex h-[72px] w-full max-w-[1245px] items-center justify-between px-8">
             <p className="text-[18px] font-semibold tracking-tight text-[#161616]">
-              {getStudentExamHeader(activeExam.subject, activeExam.title)}
+              {getStudentExamHeader(
+                activeExamDetail.subject,
+                activeExamDetail.title,
+              )}
             </p>
 
             <div className="inline-flex items-center gap-2 rounded-[16px] bg-[#F6F1FF] px-4 py-2 text-[16px] font-medium text-[#38324A]">
@@ -366,7 +451,7 @@ export default function StudentAccountPage() {
 
             <div className="mx-auto grid w-fit grid-cols-5 gap-2.5">
               {questionPalette.map((order) => {
-                const question = activeExam.questions.find(
+                const question = activeExamDetail.questions.find(
                   (currentQuestion) => currentQuestion.order === order,
                 );
                 const isFocused = focusedQuestion === order;
@@ -398,7 +483,7 @@ export default function StudentAccountPage() {
           </aside>
 
           <div className="space-y-6">
-            {activeExam.questions.map((question) => (
+            {activeExamDetail.questions.map((question) => (
               <article
                 key={question.id}
                 id={`question-${question.order}`}
@@ -585,8 +670,9 @@ export default function StudentAccountPage() {
                     strokeWidth={2.1}
                   />
                   <p className="text-[12px] leading-6 font-medium text-[#3A3645] sm:text-[13px]">
-                    Шалгалтыг эхлүүлсэн тохиолдолд хугацаа зогсохгүй үргэлжлэн
-                    тоологдож, дуусмагц автоматаар илгээгдэхийг анхаарна уу.
+                    {selectedExamLockState.locked
+                      ? `Шалгалт эхлэхээс өмнөх 10 минутын хугацаанд түгжигдсэн байна. Эхлэх хүртэл ${selectedExamLockState.minutesUntilStart} минут үлдлээ.`
+                      : "Шалгалтыг эхлүүлсэн тохиолдолд хугацаа зогсохгүй үргэлжлэн тоологдож, дуусмагц автоматаар илгээгдэхийг анхаарна уу."}
                   </p>
                 </div>
               </div>
@@ -604,10 +690,14 @@ export default function StudentAccountPage() {
                   <button
                     type="button"
                     onClick={handleStartExam}
-                    disabled={activeExam.questionCount === 0}
+                    disabled={
+                      activeExam.questionCount === 0 ||
+                      selectedExamLockState.locked ||
+                      activeExamLoading
+                    }
                     className="flex h-[36px] min-w-[102px] cursor-pointer items-center justify-center rounded-[13px] bg-[linear-gradient(180deg,#A789F4_0%,#8C6EE4_100%)] px-7 text-[15px] leading-none font-semibold text-white shadow-[inset_0_-4px_0_rgba(104,78,187,0.28),0_7px_14px_rgba(144,118,226,0.20)] transition hover:brightness-[1.02] disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    Эхлэх
+                    {selectedExamLockState.locked ? "Түгжигдсэн" : "Эхлэх"}
                   </button>
                 </div>
               </div>
@@ -637,6 +727,8 @@ export default function StudentAccountPage() {
         <div className="mx-auto grid gap-10 [grid-template-columns:repeat(auto-fit,minmax(264px,264px))]">
           {availableExams.map((exam) => {
             const presentation = getStudentExamPresentation(exam.subject);
+            const { locked, minutesUntilStart, secondsUntilStart } =
+              getPreStartLockState(exam, currentTimeMs);
 
             return (
               <ExamCard
@@ -647,15 +739,22 @@ export default function StudentAccountPage() {
                 grade={exam.grade}
                 minutes={exam.duration}
                 exercises={exam.questionCount}
-                scheduledDate={exam.scheduledDate}
-                startTime={exam.startTime}
+                scheduledDate={exam.scheduledDate ?? undefined}
+                startTime={exam.startTime ?? undefined}
                 date="Идэвхтэй"
                 bg={presentation.bg}
                 iconBg={presentation.iconBg}
-                onClick={() => {
-                  setSubmittedExamName(null);
-                  setSelectedExamId(exam.id);
-                }}
+                locked={locked}
+                minutesUntilStart={minutesUntilStart}
+                secondsUntilStart={secondsUntilStart}
+                onClick={
+                  locked
+                    ? undefined
+                    : () => {
+                        setSubmittedExamName(null);
+                        setSelectedExamId(exam.id);
+                      }
+                }
               />
             );
           })}

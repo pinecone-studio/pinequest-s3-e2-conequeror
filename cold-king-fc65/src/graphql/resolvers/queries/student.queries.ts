@@ -6,7 +6,8 @@ import { students } from '../../../db/schemas/student.schema';
 import type { GraphQLContext } from '../../../server';
 import {
 	getAccessibleExamForStudent,
-	isExamOpenNow,
+	getExamPreStartLockState,
+	isExamVisibleForStudent,
 	isExamScheduledForFuture,
 	loadQuestionsWithChoices,
 	requireStudentRecord,
@@ -49,7 +50,7 @@ export const studentQuery = {
 					.filter(
 						({ announced_exams, exams }) =>
 							!submittedExamIds.has(exams.id) &&
-							isExamOpenNow({
+							isExamVisibleForStudent({
 								openStatus: announced_exams.openStatus,
 								scheduledDate: announced_exams.scheduledDate,
 								startTime: announced_exams.startTime,
@@ -58,6 +59,10 @@ export const studentQuery = {
 					)
 					.map(async ({ exams: exam, announced_exams }) => {
 						const questionCount = (await loadQuestionsWithChoices(context, exam.id)).length;
+						const preStartLockState = getExamPreStartLockState({
+							scheduledDate: announced_exams.scheduledDate,
+							startTime: announced_exams.startTime,
+						});
 
 						return {
 							id: announced_exams.id,
@@ -70,6 +75,9 @@ export const studentQuery = {
 							startTime: announced_exams.startTime,
 							duration: exam.duration,
 							questionCount,
+							isLocked: preStartLockState.isLocked,
+							minutesUntilStart: preStartLockState.minutesUntilStart,
+							startsAtMs: preStartLockState.startsAtMs,
 						};
 					}),
 			);
@@ -106,6 +114,10 @@ export const studentQuery = {
 					)
 					.map(async ({ exams: exam, announced_exams }) => {
 						const questionCount = (await loadQuestionsWithChoices(context, exam.id)).length;
+						const preStartLockState = getExamPreStartLockState({
+							scheduledDate: announced_exams.scheduledDate,
+							startTime: announced_exams.startTime,
+						});
 
 						return {
 							id: announced_exams.id,
@@ -118,6 +130,9 @@ export const studentQuery = {
 							startTime: announced_exams.startTime,
 							duration: exam.duration,
 							questionCount,
+							isLocked: preStartLockState.isLocked,
+							minutesUntilStart: preStartLockState.minutesUntilStart,
+							startsAtMs: preStartLockState.startsAtMs,
 						};
 					}),
 			);

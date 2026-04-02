@@ -1,43 +1,38 @@
-import { and, eq, inArray } from "drizzle-orm";
-import { announcedExamGrades } from "../../db/schemas/announcedExamGrades.schema";
-import { announcedExams } from "../../db/schemas/announcedExams.schema";
-import { choices } from "../../db/schemas/choices.schema";
-import { exams } from "../../db/schemas/exam.schema";
-import { questions } from "../../db/schemas/question.schema";
-import { students } from "../../db/schemas/student.schema";
-import type { GraphQLContext } from "../../server";
-import {
-	legacyChoices,
-	supportsChoiceMediaColumns,
-} from "./choices-table.helpers";
-import { badUserInputError, notFoundError, unauthorizedError } from "../errors";
+import { and, eq, inArray } from 'drizzle-orm';
+import { announcedExamGrades } from '../../db/schemas/announcedExamGrades.schema';
+import { announcedExams } from '../../db/schemas/announcedExams.schema';
+import { choices } from '../../db/schemas/choices.schema';
+import { exams } from '../../db/schemas/exam.schema';
+import { questions } from '../../db/schemas/question.schema';
+import { students } from '../../db/schemas/student.schema';
+import type { GraphQLContext } from '../../server';
+import { legacyChoices, supportsChoiceMediaColumns } from './choices-table.helpers';
+import { badUserInputError, notFoundError, unauthorizedError } from '../errors';
 
-const ULAANBAATAR_UTC_OFFSET_HOURS = 8;
+const PRE_START_VISIBLE_WINDOW_MS = 10 * 60_000;
 
 function parseScheduleDateTime(scheduledDate: string, startTime: string) {
-	const dateMatch = scheduledDate.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-	const timeMatch = startTime.match(/^(\d{2}):(\d{2})$/);
+	const normalizedDate = scheduledDate.trim().split('T')[0]?.replaceAll('/', '-');
+	const normalizedTime = startTime
+		.trim()
+		.split('T')
+		.pop()
+		?.replace('Z', '')
+		.split('.')[0]
+		.replace(/[+-]\d{2}:\d{2}$/, '');
+	const dateMatch = normalizedDate?.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+	const timeMatch = normalizedTime?.match(/^(\d{2}):(\d{2})(?::(\d{2}))?$/);
 
 	if (!dateMatch || !timeMatch) {
 		return null;
 	}
 
 	const [, year, month, day] = dateMatch;
-	const [, hour, minute] = timeMatch;
+	const [, hour, minute, second] = timeMatch;
 
 	// Announced exam times are entered for Ulaanbaatar local time, while the
 	// runtime may be in UTC. Convert the local wall time to a real timestamp.
-	const startsAt = new Date(
-		Date.UTC(
-			Number(year),
-			Number(month) - 1,
-			Number(day),
-			Number(hour) - ULAANBAATAR_UTC_OFFSET_HOURS,
-			Number(minute),
-			0,
-			0,
-		),
-	);
+	const startsAt = new Date(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute), Number(second ?? '0'), 0);
 
 	if (Number.isNaN(startsAt.getTime())) {
 		return null;
@@ -46,12 +41,7 @@ function parseScheduleDateTime(scheduledDate: string, startTime: string) {
 	return startsAt;
 }
 
-export function isExamOpenNow(params: {
-	openStatus: boolean;
-	scheduledDate: string;
-	startTime: string;
-	duration: number;
-}) {
+export function isExamOpenNow(params: { openStatus: boolean; scheduledDate: string; startTime: string; duration: number }) {
 	const startsAt = parseScheduleDateTime(params.scheduledDate, params.startTime);
 	if (!startsAt) {
 		return false;
@@ -68,11 +58,7 @@ export function isExamOpenNow(params: {
 	return currentTime >= startsAt && currentTime < closesAt;
 }
 
-export function isExamScheduledForFuture(params: {
-	openStatus: boolean;
-	scheduledDate: string;
-	startTime: string;
-}) {
+export function isExamVisibleForStudent(params: { openStatus: boolean; scheduledDate: string; startTime: string; duration: number }) {
 	const startsAt = parseScheduleDateTime(params.scheduledDate, params.startTime);
 	if (!startsAt) {
 		return false;
@@ -82,7 +68,48 @@ export function isExamScheduledForFuture(params: {
 		return false;
 	}
 
-	return startsAt > new Date();
+	const durationMinutes = Math.max(0, params.duration);
+	const closesAt = new Date(startsAt.getTime() + durationMinutes * 60_000);
+	const visibleFrom = new Date(startsAt.getTime() - PRE_START_VISIBLE_WINDOW_MS);
+	const currentTime = new Date();
+
+	return currentTime >= visibleFrom && currentTime < closesAt;
+}
+
+export function getExamPreStartLockState(params: { scheduledDate: string; startTime: string }) {
+	const startsAt = parseScheduleDateTime(params.scheduledDate, params.startTime);
+	if (!startsAt) {
+		return {
+			isLocked: false,
+			minutesUntilStart: 0,
+			startsAtMs: null as number | null,
+		};
+	}
+
+	const nowMs = Date.now();
+	const startsAtMs = startsAt.getTime();
+	const lockStartsAtMs = startsAtMs - PRE_START_VISIBLE_WINDOW_MS;
+	const isLocked = nowMs >= lockStartsAtMs && nowMs < startsAtMs;
+	const minutesUntilStart = isLocked ? Math.max(1, Math.ceil((startsAtMs - nowMs) / 60_000)) : 0;
+
+	return {
+		isLocked,
+		minutesUntilStart,
+		startsAtMs,
+	};
+}
+
+export function isExamScheduledForFuture(params: { openStatus: boolean; scheduledDate: string; startTime: string }) {
+	const startsAt = parseScheduleDateTime(params.scheduledDate, params.startTime);
+	if (!startsAt) {
+		return false;
+	}
+
+	if (!params.openStatus) {
+		return false;
+	}
+
+	return startsAt.getTime() - PRE_START_VISIBLE_WINDOW_MS > Date.now();
 }
 
 export async function requireStudentRecord(context: GraphQLContext) {
@@ -90,23 +117,16 @@ export async function requireStudentRecord(context: GraphQLContext) {
 		throw unauthorizedError();
 	}
 
-	const student = await context.db
-		.select()
-		.from(students)
-		.where(eq(students.id, context.auth.userId))
-		.get();
+	const student = await context.db.select().from(students).where(eq(students.id, context.auth.userId)).get();
 
 	if (!student) {
-		throw notFoundError("Student profile not found.");
+		throw notFoundError('Student profile not found.');
 	}
 
 	return student;
 }
 
-export async function getAccessibleExamForStudent(
-	context: GraphQLContext,
-	announcedExamId: string,
-) {
+export async function getAccessibleExamForStudent(context: GraphQLContext, announcedExamId: string) {
 	const student = await requireStudentRecord(context);
 	const examRecord = await context.db
 		.select()
@@ -123,7 +143,7 @@ export async function getAccessibleExamForStudent(
 		.get();
 
 	if (!examRecord) {
-		throw notFoundError("Exam not found.");
+		throw notFoundError('Exam not found.');
 	}
 
 	if (
@@ -134,7 +154,7 @@ export async function getAccessibleExamForStudent(
 			duration: examRecord.exams.duration,
 		})
 	) {
-		throw badUserInputError("Exam is not open at this time.");
+		throw badUserInputError('Exam is not open at this time.');
 	}
 
 	return {
@@ -149,19 +169,10 @@ export async function getAccessibleExamForStudent(
 	};
 }
 
-export async function loadQuestionsWithChoices(
-	context: GraphQLContext,
-	examId: string,
-) {
-	const examQuestions = await context.db
-		.select()
-		.from(questions)
-		.where(eq(questions.examId, examId))
-		.all();
+export async function loadQuestionsWithChoices(context: GraphQLContext, examId: string) {
+	const examQuestions = await context.db.select().from(questions).where(eq(questions.examId, examId)).all();
 
-	const sortedQuestions = [...examQuestions].sort(
-		(left, right) => left.indexOnExam - right.indexOnExam,
-	);
+	const sortedQuestions = [...examQuestions].sort((left, right) => left.indexOnExam - right.indexOnExam);
 
 	if (sortedQuestions.length === 0) {
 		return [];
@@ -170,22 +181,12 @@ export async function loadQuestionsWithChoices(
 	const questionIds = sortedQuestions.map((question) => question.id);
 	const mediaColumnsSupported = await supportsChoiceMediaColumns(context);
 	const questionChoices = mediaColumnsSupported
-		? await context.db
-			.select()
-			.from(choices)
-			.where(inArray(choices.questionId, questionIds))
-			.all()
-		: (
-			await context.db
-				.select()
-				.from(legacyChoices)
-				.where(inArray(legacyChoices.questionId, questionIds))
-				.all()
-		).map((choice) => ({
-			...choice,
-			imageUrl: null,
-			videoUrl: null,
-		}));
+		? await context.db.select().from(choices).where(inArray(choices.questionId, questionIds)).all()
+		: (await context.db.select().from(legacyChoices).where(inArray(legacyChoices.questionId, questionIds)).all()).map((choice) => ({
+				...choice,
+				imageUrl: null,
+				videoUrl: null,
+			}));
 
 	return sortedQuestions.map((question, index) => ({
 		...question,

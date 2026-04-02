@@ -26,6 +26,9 @@ export const studentTypeDefs = gql`
 		startTime: String
 		duration: Int!
 		questionCount: Int!
+		isLocked: Boolean!
+		minutesUntilStart: Int!
+		startsAtMs: Float
 	}
 
 	type StudentExamChoice {

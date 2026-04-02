@@ -22,6 +22,9 @@ interface ExamCardProps {
   iconBg: string;
   scheduledDate?: string;
   startTime?: string;
+  locked?: boolean;
+  minutesUntilStart?: number;
+  secondsUntilStart?: number;
   onClick?: () => void;
 }
 
@@ -64,14 +67,51 @@ export default function ExamCard({
   exercises,
   startTime,
   scheduledDate,
+  locked = false,
+  minutesUntilStart = 0,
+  secondsUntilStart = 0,
   bg,
   iconBg,
   onClick,
 }: ExamCardProps) {
+  const formatCountdown = (totalSeconds: number) => {
+    const safeSeconds = Math.max(0, totalSeconds);
+    const mm = Math.floor(safeSeconds / 60);
+    const ss = safeSeconds % 60;
+
+    return `${String(mm).padStart(2, "0")}:${String(ss).padStart(2, "0")}`;
+  };
+
+  const displayStartTime = startTime ? startTime.slice(0, 5) : "--:--";
+  const displayScheduledDate = scheduledDate || "----/--/--";
+  const isClickable = Boolean(onClick) && !locked;
+  const effectiveSecondsUntilStart =
+    secondsUntilStart > 0
+      ? secondsUntilStart
+      : Math.max(1, minutesUntilStart * 60);
+  const unlockInMinutes = Math.max(
+    1,
+    Math.ceil(effectiveSecondsUntilStart / 60),
+  );
+
   const cardContent = (
     <div
-      className={`group flex  max-w-[264px] cursor-pointer flex-col gap-3 rounded-[20px] p-5 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg ${bg}`}
+      className={[
+        "relative flex h-[269px] w-[264px] flex-col gap-3 overflow-hidden rounded-[20px] p-5 text-left transition-all duration-300",
+        locked
+          ? "border border-[#D9D9D9] bg-[linear-gradient(180deg,#F2F2F2_0%,#E8E8E8_100%)] opacity-90"
+          : bg,
+        isClickable
+          ? "cursor-pointer hover:-translate-y-1 hover:shadow-lg"
+          : "cursor-default",
+      ].join(" ")}
     >
+      {locked ? (
+        <div className="absolute top-3 right-3 rounded-full border border-[#CFCFCF] bg-[#ECECEC] px-2.5 py-1 text-[11px] font-semibold text-[#3F3F3F]">
+          {formatCountdown(effectiveSecondsUntilStart)}
+        </div>
+      ) : null}
+
       <div
         className={`flex h-12 w-12 items-center justify-center rounded-2xl ${iconBg}`}
       >
@@ -94,16 +134,22 @@ export default function ExamCard({
           {exercises} дасгал
         </span>
       </div>
-      <div>
+      <div className="mt-auto">
         <p className="text-[12px] text-black font-bold ">
-          Эхлэх цаг - /{startTime}/
+          Эхлэх цаг - /{displayStartTime}/
         </p>
-        <p className="text-[12px] text-[#8B8B8B]">{scheduledDate}</p>
+        <p className="text-[12px] text-[#8B8B8B]">{displayScheduledDate}</p>
       </div>
+
+      {locked ? (
+        <div className="absolute right-3 bottom-3 inline-flex w-fit items-center rounded-full border border-[#CFCFCF] bg-[#E5E5E5] px-3 py-1 text-[12px] font-semibold text-[#434343]">
+          Түгжигдсэн
+        </div>
+      ) : null}
     </div>
   );
 
-  if (!onClick) {
+  if (!isClickable) {
     return cardContent;
   }
 
