@@ -1,20 +1,23 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Stack, router, useLocalSearchParams } from "expo-router";
 import { useKeepAwake } from "expo-keep-awake";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAppData } from "@/data/app-data";
 import { MathText } from "@/components/MathText";
 import { SecurityOverlay } from "@/components/SecurityOverlay";
 import { SecureText } from "@/components/SecureText";
 import { FullScreenLoader } from "@/components/FullScreenLoader";
-import { PrimaryButton } from "@/components/PrimaryButton";
 import { StatusCard } from "@/components/StatusCard";
 import { clearExamDraft, getExamDraft, saveExamDraft } from "@/lib/exam-draft";
 import { colors, fonts, shadows } from "@/lib/theme";
 import type { StudentAnswerDraft } from "@/lib/student-types";
-import { formatCountdown } from "@/lib/student-exam";
+import {
+  buildStudentExamSubjectOrder,
+  formatCountdown,
+  getStudentExamPresentation,
+} from "@/lib/student-exam";
 import { shuffleQuestionsForUser } from "@/security/question-order";
 import { useExamIntegrity } from "@/security/useExamIntegrity";
 
@@ -26,7 +29,7 @@ function getRemainingSeconds(durationMinutes: number, startedAt: number) {
 export default function TakeExamScreen() {
   const params = useLocalSearchParams<{ examId: string }>();
   const examId = typeof params.examId === "string" ? params.examId : "";
-  const { ensureExamLoaded, getExamById, submitExam, student } = useAppData();
+  const { availableExams, ensureExamLoaded, getExamById, submitExam, student } = useAppData();
   const [secondsLeft, setSecondsLeft] = useState(0);
   const [answers, setAnswers] = useState<Record<string, StudentAnswerDraft>>({});
   const [submitError, setSubmitError] = useState("");
@@ -42,6 +45,14 @@ export default function TakeExamScreen() {
     (source: "manual" | "auto" | "background" | "session_replaced") => Promise<void>
   >(async () => {});
   const exam = getExamById(examId);
+  const subjectOrder = useMemo(
+    () => buildStudentExamSubjectOrder(exam ? [...availableExams, exam] : availableExams),
+    [availableExams, exam],
+  );
+  const presentation = useMemo(
+    () => (exam ? getStudentExamPresentation(exam.subject, subjectOrder) : null),
+    [exam, subjectOrder],
+  );
 
   const shuffledQuestions = useMemo(
     () => (exam ? shuffleQuestionsForUser(exam.questions, student.email, exam.id) : []),
@@ -53,25 +64,25 @@ export default function TakeExamScreen() {
     [answers, shuffledQuestions],
   );
 
-  useKeepAwake();
-
-  const {
-    leaveCount,
-    screenshotCount,
-    recordingCount,
-    violationCount,
-    warningMessage,
-    recordingBlurActive,
-    faceStatus,
-    nativeMonitoringAvailable,
-  } = useExamIntegrity({
-    userId: student.id,
-    examId,
-    onAutoSubmit: async (reason) => {
+  const handleAutoSubmit = useCallback(
+    async (reason: "timer" | "background" | "session_replaced") => {
       await submitExamRef.current(
         reason === "timer" ? "auto" : reason === "session_replaced" ? "session_replaced" : "background",
       );
     },
+    [],
+  );
+
+  useKeepAwake();
+
+  const {
+    leaveCount,
+    warningMessage,
+    recordingBlurActive,
+  } = useExamIntegrity({
+    userId: student.id,
+    examId,
+    onAutoSubmit: handleAutoSubmit,
   });
 
   useEffect(() => {
@@ -193,7 +204,7 @@ export default function TakeExamScreen() {
       });
 
       await clearExamDraft(exam.id);
-      router.replace("/(student)/(tabs)/results");
+      router.replace("/(student)/exam/submitted");
     } catch (caughtError) {
       setSubmitError(
         caughtError instanceof Error
@@ -302,14 +313,22 @@ export default function TakeExamScreen() {
       ) : null}
 
       <View style={styles.header}>
-        <View>
-          <SecureText style={styles.headerEyebrow}>Хамгаалалттай шалгалт</SecureText>
-          <SecureText style={styles.headerTitle}>Шалгалт явагдаж байна</SecureText>
-        </View>
-        <View style={[styles.timerChip, secondsLeft < 300 ? styles.timerChipDanger : null]}>
+        <SecureText style={styles.headerTitle}>
+          {presentation?.subjectLabel ?? exam.subject}
+        </SecureText>
+        <View
+          style={[
+            styles.timerChip,
+            {
+              backgroundColor: presentation?.noticeBackground ?? "#F3F0FF",
+              borderColor: presentation?.noticeBorder ?? "#D8D1FA",
+            },
+            secondsLeft < 300 ? styles.timerChipDanger : null,
+          ]}
+        >
           <Ionicons
             name="time-outline"
-            size={16}
+            size={20}
             color={secondsLeft < 300 ? colors.dangerText : colors.textSecondary}
           />
           <SecureText style={[styles.timerText, secondsLeft < 300 ? styles.timerTextDanger : null]}>
@@ -319,19 +338,6 @@ export default function TakeExamScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <MathText value={exam.title} style={styles.title} />
-        <SecureText style={styles.subtitle}>
-          Бүх асуулт нэг дор харагдана. Доош гүйлгээд хариулаад, дуусмагц шалгалтаа илгээнэ үү.
-        </SecureText>
-
-        <StatusCard
-          tone="info"
-          message={
-            nativeMonitoringAvailable
-              ? "Дэлгэцийн зураг, аппаас гарах, бичлэг, нүүр илрүүлэлт зэрэг хяналт идэвхтэй."
-              : "Дэлгэцийн зураг болон аппаас гарах хамгаалалт идэвхтэй. Нүүр болон бичлэгийн төхөөрөмжийн түвшний хяналт нь хөгжүүлэлтийн хувилбар дээр идэвхжинэ."
-          }
-        />
         {leaveCount > 0 ? (
           <StatusCard
             tone="warning"
@@ -339,48 +345,6 @@ export default function TakeExamScreen() {
           />
         ) : null}
         {submitError ? <StatusCard tone="error" message={submitError} /> : null}
-
-        <View style={styles.progressCard}>
-          <View>
-            <SecureText style={styles.progressValue}>{answeredCount}</SecureText>
-            <SecureText style={styles.progressLabel}>Бөглөсөн</SecureText>
-          </View>
-          <View>
-            <SecureText style={styles.progressValue}>{shuffledQuestions.length - answeredCount}</SecureText>
-            <SecureText style={styles.progressLabel}>Үлдсэн</SecureText>
-          </View>
-          <View>
-            <SecureText style={styles.progressValue}>{violationCount}</SecureText>
-            <SecureText style={styles.progressLabel}>Зөрчил</SecureText>
-          </View>
-        </View>
-
-        <View style={styles.securityMetaCard}>
-          <View style={styles.securityMetaRow}>
-            <SecureText style={styles.securityMetaLabel}>Нийт асуулт</SecureText>
-            <SecureText style={styles.securityMetaValue}>{shuffledQuestions.length}</SecureText>
-          </View>
-          <View style={styles.securityMetaRow}>
-            <SecureText style={styles.securityMetaLabel}>Дэлгэцийн зураг</SecureText>
-            <SecureText style={styles.securityMetaValue}>{screenshotCount}</SecureText>
-          </View>
-          <View style={styles.securityMetaRow}>
-            <SecureText style={styles.securityMetaLabel}>Бичлэг</SecureText>
-            <SecureText style={styles.securityMetaValue}>{recordingCount}</SecureText>
-          </View>
-          <View style={styles.securityMetaRow}>
-            <SecureText style={styles.securityMetaLabel}>Нүүрний төлөв</SecureText>
-            <SecureText style={styles.securityMetaValue}>
-              {faceStatus === "unsupported"
-                ? "Боломжгүй"
-                : faceStatus === "single_face"
-                  ? "Нэг нүүр"
-                  : faceStatus === "multiple_faces"
-                    ? "Олон нүүр"
-                    : "Нүүр алга"}
-            </SecureText>
-          </View>
-        </View>
 
         <View style={styles.questionStack}>
           {shuffledQuestions.map((question, index) => (
@@ -402,9 +366,6 @@ export default function TakeExamScreen() {
                       style={[styles.choiceButton, selected ? styles.choiceButtonSelected : null]}
                       onPress={() => handleSelectChoice(question.id, choice.id)}
                     >
-                      <View style={[styles.radio, selected ? styles.radioSelected : null]}>
-                        {selected ? <View style={styles.radioInner} /> : null}
-                      </View>
                       <MathText value={`${choice.label}. ${choice.text}`} style={styles.choiceText} />
                     </Pressable>
                   );
@@ -414,12 +375,41 @@ export default function TakeExamScreen() {
           ))}
         </View>
 
-        <PrimaryButton
-          label={submitLoading ? "Илгээж байна..." : "Шалгалт илгээх"}
-          onPress={handleSubmitPress}
-          disabled={submitLoading}
-          loading={submitLoading}
-        />
+        <View style={styles.footer}>
+          <View style={styles.progressChip}>
+            <SecureText style={styles.progressChipText}>
+              {answeredCount}/{shuffledQuestions.length} бөглөсөн
+            </SecureText>
+          </View>
+
+          <Pressable
+            style={[
+              styles.submitButton,
+              {
+                backgroundColor: presentation?.actionButtonBackground ?? colors.primary,
+              },
+              submitLoading ? styles.submitButtonDisabled : null,
+            ]}
+            onPress={handleSubmitPress}
+            disabled={submitLoading}
+          >
+            <View
+              pointerEvents="none"
+              style={[
+                styles.submitButtonInset,
+                {
+                  backgroundColor:
+                    presentation?.actionButtonInset ?? "rgba(103, 79, 184, 0.38)",
+                },
+              ]}
+            />
+            {submitLoading ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <SecureText style={styles.submitButtonText}>Илгээх</SecureText>
+            )}
+          </Pressable>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -428,23 +418,19 @@ export default function TakeExamScreen() {
 const styles = StyleSheet.create({
   page: {
     flex: 1,
-    backgroundColor: colors.pageBackground,
+    backgroundColor: "#FFFFFF",
   },
   header: {
     paddingHorizontal: 20,
     paddingTop: 12,
-    paddingBottom: 8,
+    paddingBottom: 20,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-  },
-  headerEyebrow: {
-    fontFamily: fonts.sans.medium,
-    fontSize: 12,
-    color: colors.primary,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
   headerTitle: {
-    marginTop: 6,
     fontFamily: fonts.display.semibold,
     fontSize: 22,
     color: colors.textPrimary,
@@ -453,12 +439,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    borderRadius: 999,
-    backgroundColor: colors.surface,
-    paddingHorizontal: 14,
+    borderRadius: 22,
+    paddingHorizontal: 18,
     paddingVertical: 10,
     borderWidth: 1,
-    borderColor: colors.border,
   },
   timerChipDanger: {
     borderColor: colors.dangerBorder,
@@ -466,7 +450,7 @@ const styles = StyleSheet.create({
   },
   timerText: {
     fontFamily: fonts.display.semibold,
-    fontSize: 15,
+    fontSize: 18,
     color: colors.textPrimary,
   },
   timerTextDanger: {
@@ -474,80 +458,19 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: 20,
-    paddingTop: 10,
-    paddingBottom: 120,
-  },
-  title: {
-    fontFamily: fonts.display.semibold,
-    fontSize: 27,
-    color: colors.textPrimary,
-  },
-  subtitle: {
-    marginTop: 8,
-    marginBottom: 18,
-    fontFamily: fonts.sans.regular,
-    fontSize: 14,
-    lineHeight: 22,
-    color: colors.textMuted,
-  },
-  progressCard: {
-    marginBottom: 16,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-    paddingHorizontal: 18,
-    paddingVertical: 16,
-    ...shadows.card,
-  },
-  progressValue: {
-    textAlign: "center",
-    fontFamily: fonts.display.semibold,
-    fontSize: 22,
-    color: colors.textPrimary,
-  },
-  progressLabel: {
-    marginTop: 6,
-    textAlign: "center",
-    fontFamily: fonts.sans.medium,
-    fontSize: 12,
-    color: colors.textMuted,
-  },
-  securityMetaCard: {
-    marginBottom: 16,
-    borderRadius: 24,
-    backgroundColor: colors.surface,
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-    ...shadows.card,
-  },
-  securityMetaRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: 9,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  securityMetaLabel: {
-    fontFamily: fonts.sans.medium,
-    fontSize: 13,
-    color: colors.textMuted,
-  },
-  securityMetaValue: {
-    fontFamily: fonts.sans.semibold,
-    fontSize: 14,
-    color: colors.textPrimary,
+    paddingTop: 22,
+    paddingBottom: 110,
   },
   questionStack: {
-    gap: 16,
+    gap: 22,
   },
   questionCard: {
-    borderRadius: 28,
-    backgroundColor: colors.surface,
-    padding: 18,
+    borderRadius: 26,
+    borderWidth: 1,
+    borderColor: "#E9E3F8",
+    backgroundColor: "#FFFFFF",
+    paddingHorizontal: 22,
+    paddingVertical: 22,
     ...shadows.card,
   },
   questionHeader: {
@@ -558,63 +481,85 @@ const styles = StyleSheet.create({
   },
   questionCounter: {
     fontFamily: fonts.sans.medium,
-    fontSize: 12,
-    color: colors.primary,
+    fontSize: 16,
+    color: colors.textMuted,
   },
   questionPoints: {
     fontFamily: fonts.sans.medium,
-    fontSize: 12,
-    color: colors.textSoft,
+    fontSize: 16,
+    color: colors.textMuted,
   },
   questionTitle: {
-    marginTop: 12,
+    marginTop: 16,
     fontFamily: fonts.sans.semibold,
-    fontSize: 17,
-    lineHeight: 25,
+    fontSize: 18,
+    lineHeight: 28,
     color: colors.textPrimary,
   },
   choiceList: {
-    marginTop: 16,
-    gap: 10,
+    marginTop: 18,
+    gap: 14,
   },
   choiceButton: {
-    flexDirection: "row",
-    gap: 12,
+    justifyContent: "center",
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-    paddingHorizontal: 14,
-    paddingVertical: 14,
+    borderColor: "#E7E1F6",
+    backgroundColor: "#FFFFFF",
+    paddingHorizontal: 18,
+    paddingVertical: 16,
   },
   choiceButtonSelected: {
-    borderColor: colors.primary,
-    backgroundColor: "#F6F2FF",
-  },
-  radio: {
-    marginTop: 2,
-    height: 22,
-    width: 22,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 999,
-    borderWidth: 1.5,
-    borderColor: colors.borderStrong,
-  },
-  radioSelected: {
-    borderColor: colors.primary,
-  },
-  radioInner: {
-    height: 10,
-    width: 10,
-    borderRadius: 999,
-    backgroundColor: colors.primary,
+    borderColor: "#DCD4FA",
+    backgroundColor: "#ECEAFF",
   },
   choiceText: {
-    flex: 1,
+    fontFamily: fonts.sans.medium,
+    fontSize: 16,
+    lineHeight: 24,
+    color: colors.textPrimary,
+  },
+  footer: {
+    marginTop: 28,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  progressChip: {
+    borderRadius: 999,
+    backgroundColor: "#F3F0FF",
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  progressChipText: {
     fontFamily: fonts.sans.medium,
     fontSize: 14,
-    lineHeight: 22,
     color: colors.textPrimary,
+  },
+  submitButton: {
+    width: 132,
+    height: 44,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 18,
+    overflow: "hidden",
+  },
+  submitButtonInset: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 5,
+    borderBottomLeftRadius: 18,
+    borderBottomRightRadius: 18,
+  },
+  submitButtonText: {
+    fontFamily: fonts.display.semibold,
+    fontSize: 16,
+    color: "#FFFFFF",
+  },
+  submitButtonDisabled: {
+    opacity: 0.6,
   },
 });

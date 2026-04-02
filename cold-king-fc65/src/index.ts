@@ -3,8 +3,15 @@ import { cors } from "hono/cors";
 import { eq } from "drizzle-orm";
 import { getCorsOrigins, type WorkerBindings } from "./config/runtime";
 import { getDb } from "./db/client";
+import { announcedExams } from "./db/schemas/announcedExams.schema";
+import { exams } from "./db/schemas/exam.schema";
 import { studentExamSessions } from "./db/schemas/student-exam-session.schema";
-import { getRequestAuth, getResolvedRequestAuth, yoga } from "./server";
+import {
+	getRequestAuth,
+	getResolvedRequestAuth,
+	resolveRequestStudentId,
+	yoga,
+} from "./server";
 
 const app = new Hono<{ Bindings: WorkerBindings }>();
 const SESSION_INTEGRITY_PATH = "/session-integrity";
@@ -104,12 +111,29 @@ app.post(SESSION_INTEGRITY_PATH, async (c) => {
 	}
 
 	const action = body;
+	const resolvedStudentId = await resolveRequestStudentId(c.req.raw, c.env, db, auth);
 
-	if (action.userId !== auth.userId) {
-		return c.json({ error: "Session user mismatch." }, 403);
+	if (!resolvedStudentId) {
+		return c.json({ error: "Student profile not found for this session." }, 403);
 	}
 
-	const sessionKey = `${action.userId}::${action.examId}`;
+	const announcedExam = await db
+		.select({ examId: announcedExams.examId })
+		.from(announcedExams)
+		.where(eq(announcedExams.id, action.examId))
+		.get();
+	const persistedExamId = announcedExam?.examId ?? action.examId;
+	const examExists = await db
+		.select({ id: exams.id })
+		.from(exams)
+		.where(eq(exams.id, persistedExamId))
+		.get();
+
+	if (!examExists) {
+		return c.json({ error: "Exam not found for this session." }, 404);
+	}
+
+	const sessionKey = `${resolvedStudentId}::${action.examId}`;
 	const now = Date.now();
 	const existing = await db
 		.select()
@@ -124,8 +148,8 @@ app.post(SESSION_INTEGRITY_PATH, async (c) => {
 
 		await db.insert(studentExamSessions).values({
 			id: sessionKey,
-			studentId: action.userId,
-			examId: action.examId,
+			studentId: resolvedStudentId,
+			examId: persistedExamId,
 			sessionId: action.sessionId,
 			deviceId: action.deviceId,
 			startedAt: action.timestamp,

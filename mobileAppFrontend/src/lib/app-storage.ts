@@ -12,6 +12,7 @@ type StoredRemoteSnapshot = {
   version: 1;
   student: StudentProfile;
   availableExams: Exam[];
+  scheduledExams?: Exam[];
   submissions: Submission[];
   updatedAt: number;
 };
@@ -86,6 +87,8 @@ function isStudentProfile(value: unknown): value is StudentProfile {
     typeof student.email === "string" &&
     student.role === "student" &&
     typeof student.phone === "string" &&
+    typeof student.grade === "string" &&
+    typeof student.className === "string" &&
     typeof student.inviteCode === "string"
   );
 }
@@ -146,6 +149,7 @@ export async function loadRemoteSnapshot() {
     return {
       student: parsed.student,
       availableExams: parsed.availableExams,
+      scheduledExams: parsed.scheduledExams ?? [],
       submissions: parsed.submissions,
     };
   } catch {
@@ -156,12 +160,14 @@ export async function loadRemoteSnapshot() {
 export async function saveRemoteSnapshot(snapshot: {
   student: StudentProfile;
   availableExams: Exam[];
+  scheduledExams: Exam[];
   submissions: Submission[];
 }) {
   const payload: StoredRemoteSnapshot = {
     version: 1,
     student: snapshot.student,
     availableExams: snapshot.availableExams,
+    scheduledExams: snapshot.scheduledExams,
     submissions: snapshot.submissions,
     updatedAt: Date.now(),
   };

@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { AppState } from "react-native";
 import { ConfigErrorScreen } from "@/components/ConfigErrorScreen";
 import { FullScreenLoader } from "@/components/FullScreenLoader";
+import { PrimaryButton } from "@/components/PrimaryButton";
 import { examCatalog, seedSubmissions, studentProfile } from "@/data/student-data";
 import type { Exam, StudentProfile, Submission } from "@/data/types";
 import {
@@ -12,8 +13,10 @@ import {
   saveRemoteSnapshot,
 } from "@/lib/app-storage";
 import {
+  changeRemoteStudentClassroom,
   fetchRemoteAvailableExams,
   fetchRemoteExamById,
+  fetchRemoteScheduledExams,
   fetchRemoteStudentProfile,
   fetchRemoteSubmissionById,
   fetchRemoteSubmissions,
@@ -24,6 +27,7 @@ import {
 type RemoteSnapshot = {
   student: StudentProfile;
   availableExams: Exam[];
+  scheduledExams: Exam[];
   submissions: Submission[];
 };
 
@@ -31,12 +35,14 @@ type AppDataContextValue = {
   isRemoteData: boolean;
   student: StudentProfile;
   availableExams: Exam[];
+  scheduledExams: Exam[];
   submissions: Submission[];
   getExamById: (examId: string) => Exam | null;
   getSubmissionById: (submissionId: string) => Submission | null;
   ensureExamLoaded: (examId: string) => Promise<Exam | null>;
   ensureSubmissionLoaded: (submissionId: string) => Promise<Submission | null>;
   refreshData: () => Promise<void>;
+  changeStudentClassroom: (inviteCode: string) => Promise<StudentProfile>;
   submitExam: (input: {
     examId: string;
     startedAt: number;
@@ -93,11 +99,14 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const [student, setStudent] = useState<StudentProfile>(studentProfile);
   const [submissions, setSubmissions] = useState<Submission[]>(() => [...seedSubmissions]);
   const [remoteAvailableExams, setRemoteAvailableExams] = useState<Exam[]>([]);
+  const [remoteScheduledExams, setRemoteScheduledExams] = useState<Exam[]>([]);
   const [bootStatus, setBootStatus] = useState<"loading" | "ready" | "error">("loading");
   const [bootError, setBootError] = useState("");
+  const [bootAttempt, setBootAttempt] = useState(0);
   const studentRef = useRef(studentProfile);
   const submissionsRef = useRef<Submission[]>([...seedSubmissions]);
   const remoteAvailableExamsRef = useRef<Exam[]>([]);
+  const remoteScheduledExamsRef = useRef<Exam[]>([]);
 
   useEffect(() => {
     studentRef.current = student;
@@ -111,6 +120,10 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     remoteAvailableExamsRef.current = remoteAvailableExams;
   }, [remoteAvailableExams]);
 
+  useEffect(() => {
+    remoteScheduledExamsRef.current = remoteScheduledExams;
+  }, [remoteScheduledExams]);
+
   const submittedExamIds = useMemo(
     () => new Set(submissions.map((submission) => submission.examId)),
     [submissions],
@@ -121,16 +134,23 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     [remoteAvailableExams, submittedExamIds, useRemoteData],
   );
 
+  const scheduledExams = useMemo(
+    () => (useRemoteData ? remoteScheduledExams : []),
+    [remoteScheduledExams, useRemoteData],
+  );
+
   const pullRemoteSnapshot = useCallback(async () => {
-    const [nextStudent, nextAvailableExams, nextSubmissions] = await Promise.all([
+    const [nextStudent, nextAvailableExams, nextScheduledExams, nextSubmissions] = await Promise.all([
       fetchRemoteStudentProfile(),
       fetchRemoteAvailableExams(),
+      fetchRemoteScheduledExams(),
       fetchRemoteSubmissions(),
     ]);
 
     return {
       student: nextStudent,
       availableExams: nextAvailableExams,
+      scheduledExams: nextScheduledExams,
       submissions: nextSubmissions.sort((left, right) => right.submittedAt - left.submittedAt),
     };
   }, []);
@@ -139,15 +159,18 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     const mergedSnapshot: RemoteSnapshot = {
       student: snapshot.student,
       availableExams: mergeExamCache(remoteAvailableExamsRef.current, snapshot.availableExams),
+      scheduledExams: mergeExamCache(remoteScheduledExamsRef.current, snapshot.scheduledExams),
       submissions: mergeSubmissionCache(submissionsRef.current, snapshot.submissions),
     };
 
     studentRef.current = mergedSnapshot.student;
     remoteAvailableExamsRef.current = mergedSnapshot.availableExams;
+    remoteScheduledExamsRef.current = mergedSnapshot.scheduledExams;
     submissionsRef.current = mergedSnapshot.submissions;
 
     setStudent(mergedSnapshot.student);
     setRemoteAvailableExams(mergedSnapshot.availableExams);
+    setRemoteScheduledExams(mergedSnapshot.scheduledExams);
     setSubmissions(mergedSnapshot.submissions);
 
     return mergedSnapshot;
@@ -174,6 +197,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
           if (!cancelled) {
             setStudent(studentProfile);
             setRemoteAvailableExams([]);
+            setRemoteScheduledExams([]);
             setSubmissions(cachedSubmissions ?? [...seedSubmissions]);
             setBootStatus("ready");
           }
@@ -181,6 +205,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
           if (!cancelled) {
             setStudent(studentProfile);
             setRemoteAvailableExams([]);
+            setRemoteScheduledExams([]);
             setSubmissions([...seedSubmissions]);
             setBootStatus("ready");
           }
@@ -215,7 +240,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [applyRemoteSnapshot, pullRemoteSnapshot, useRemoteData]);
+  }, [applyRemoteSnapshot, bootAttempt, pullRemoteSnapshot, useRemoteData]);
 
   useEffect(() => {
     if (!useRemoteData || bootStatus !== "ready") {
@@ -259,9 +284,13 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   }, [bootStatus, refreshRemoteSnapshot, useRemoteData]);
 
   const getExamById = useCallback((examId: string) => {
-    const source = useRemoteData ? remoteAvailableExams : examCatalog;
+    const source = useRemoteData
+      ? [...remoteAvailableExams, ...remoteScheduledExams].filter(
+          (exam, index, exams) => exams.findIndex((entry) => entry.id === exam.id) === index,
+        )
+      : examCatalog;
     return source.find((exam) => exam.id === examId) ?? null;
-  }, [remoteAvailableExams, useRemoteData]);
+  }, [remoteAvailableExams, remoteScheduledExams, useRemoteData]);
 
   const getSubmissionById = useCallback(
     (submissionId: string) => submissions.find((submission) => submission.id === submissionId) ?? null,
@@ -288,6 +317,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       await saveRemoteSnapshot({
         student: studentRef.current,
         availableExams: nextAvailableExams,
+        scheduledExams: remoteScheduledExamsRef.current,
         submissions: submissionsRef.current,
       });
 
@@ -315,6 +345,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       await saveRemoteSnapshot({
         student: studentRef.current,
         availableExams: remoteAvailableExamsRef.current,
+        scheduledExams: remoteScheduledExamsRef.current,
         submissions: nextSubmissions,
       });
 
@@ -332,6 +363,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     const cachedSubmissions = await loadLocalSubmissions();
     setStudent(studentProfile);
     setRemoteAvailableExams([]);
+    setRemoteScheduledExams([]);
     setSubmissions(cachedSubmissions ?? [...seedSubmissions]);
   }, [refreshRemoteSnapshot, useRemoteData]);
 
@@ -363,6 +395,8 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         question: question.question,
         type: question.type,
         answerText: null,
+        correctAnswerText: correctChoice?.text ?? null,
+        aiExplanation: null,
         selectedChoiceId: draft?.selectedChoiceId ?? null,
         correctChoiceId: correctChoice?.id ?? null,
         isCorrect,
@@ -402,6 +436,21 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     return { id: nextSubmission.id };
   }, [refreshRemoteSnapshot, submissions, useRemoteData]);
 
+  const changeStudentClassroom = useCallback<AppDataContextValue["changeStudentClassroom"]>(async (inviteCode) => {
+    if (!useRemoteData) {
+      throw new Error("Анги солих нь зөвхөн backend-тэй горимд ажиллана.");
+    }
+
+    const nextStudent = await changeRemoteStudentClassroom(inviteCode);
+    const snapshot = await pullRemoteSnapshot();
+    const mergedSnapshot = applyRemoteSnapshot({
+      ...snapshot,
+      student: nextStudent,
+    });
+      await saveRemoteSnapshot(mergedSnapshot);
+      return mergedSnapshot.student;
+  }, [applyRemoteSnapshot, pullRemoteSnapshot, useRemoteData]);
+
   const resetData = useCallback(() => {
     if (useRemoteData) {
       void (async () => {
@@ -423,19 +472,23 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       isRemoteData: useRemoteData,
       student,
       availableExams,
+      scheduledExams,
       submissions,
       getExamById,
       getSubmissionById,
       ensureExamLoaded,
       ensureSubmissionLoaded,
       refreshData,
+      changeStudentClassroom,
       submitExam,
       resetData,
     }),
     [
       availableExams,
+      scheduledExams,
       ensureExamLoaded,
       ensureSubmissionLoaded,
+      changeStudentClassroom,
       getExamById,
       getSubmissionById,
       refreshData,
@@ -460,6 +513,14 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       <ConfigErrorScreen
         title="Өгөгдөл ачаалж чадсангүй"
         message={bootError || "Mobile app-ийн GraphQL тохиргоог шалгана уу."}
+        action={
+          <PrimaryButton
+            label="Дахин оролдох"
+            onPress={() => {
+              setBootAttempt((current) => current + 1);
+            }}
+          />
+        }
       />
     );
   }

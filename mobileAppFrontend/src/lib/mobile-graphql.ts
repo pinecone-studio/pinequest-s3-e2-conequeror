@@ -4,7 +4,7 @@ type MobileRemoteConfig = {
   graphqlUrl: string;
   accessKey: string;
   studentEmail: string;
-  studentInviteCode: string;
+  studentInviteCode?: string;
 };
 
 type GraphqlError = {
@@ -76,11 +76,28 @@ type RemoteSubmissionSummaries = {
     title: string;
     subject: string;
     grade: string;
+    scheduledDate: string | null;
+    startTime: string | null;
     duration: number;
     questionCount: number;
     correctAnswers: number;
     scorePercent: number;
     submittedAt: number;
+  }[];
+};
+
+type RemoteScheduledExams = {
+  scheduledExamsForStudent: {
+    id: string;
+    examId: string;
+    title: string;
+    subject: string;
+    description: string | null;
+    grade: string;
+    scheduledDate: string | null;
+    startTime: string | null;
+    duration: number;
+    questionCount: number;
   }[];
 };
 
@@ -104,6 +121,8 @@ type RemoteSubmissionDetail = {
       question: string;
       type: "mcq";
       answerText: string | null;
+      correctAnswerText: string | null;
+      aiExplanation: string | null;
       selectedChoiceId: string | null;
       correctChoiceId: string | null;
       isCorrect: boolean | null;
@@ -120,6 +139,10 @@ type SubmitStudentExamResponse = {
   submitStudentExam: {
     id: string;
   };
+};
+
+type ChangeStudentClassroomResponse = {
+  changeStudentClassroom: RemoteStudentProfile["studentById"];
 };
 
 const GET_CURRENT_STUDENT = `
@@ -189,11 +212,30 @@ const GET_MY_EXAM_SUBMISSIONS = `
       title
       subject
       grade
+      scheduledDate
+      startTime
       duration
       questionCount
       correctAnswers
       scorePercent
       submittedAt
+    }
+  }
+`;
+
+const GET_SCHEDULED_EXAMS = `
+  query GetScheduledExamsForStudent {
+    scheduledExamsForStudent {
+      id
+      examId
+      title
+      subject
+      description
+      grade
+      scheduledDate
+      startTime
+      duration
+      questionCount
     }
   }
 `;
@@ -219,6 +261,8 @@ const GET_STUDENT_EXAM_SUBMISSION_DETAIL = `
         question
         type
         answerText
+        correctAnswerText
+        aiExplanation
         selectedChoiceId
         correctChoiceId
         isCorrect
@@ -240,6 +284,23 @@ const SUBMIT_STUDENT_EXAM = `
   }
 `;
 
+const CHANGE_STUDENT_CLASSROOM = `
+  mutation ChangeStudentClassroom($input: ChangeStudentClassroomInput!) {
+    changeStudentClassroom(input: $input) {
+      id
+      firstName
+      lastName
+      email
+      phone
+      grade
+      className
+      inviteCode
+    }
+  }
+`;
+
+const NETWORK_TIMEOUT_MS = 8_000;
+
 function readEnv(name: string) {
   return process.env[name]?.trim() ?? "";
 }
@@ -250,7 +311,7 @@ export function getMobileRemoteConfig(): MobileRemoteConfig | null {
   const studentEmail = readEnv("EXPO_PUBLIC_MOBILE_STUDENT_EMAIL").toLowerCase();
   const studentInviteCode = readEnv("EXPO_PUBLIC_MOBILE_STUDENT_INVITE_CODE").toUpperCase();
 
-  if (!graphqlUrl || !accessKey || !studentEmail || !studentInviteCode) {
+  if (!graphqlUrl || !accessKey || !studentEmail) {
     return null;
   }
 
@@ -258,7 +319,7 @@ export function getMobileRemoteConfig(): MobileRemoteConfig | null {
     graphqlUrl,
     accessKey,
     studentEmail,
-    studentInviteCode,
+    studentInviteCode: studentInviteCode || undefined,
   };
 }
 
@@ -269,19 +330,39 @@ async function fetchGraphql<TData>(query: string, variables?: Record<string, unk
     throw new Error("Mobile GraphQL тохиргоо дутуу байна.");
   }
 
-  const response = await fetch(config.graphqlUrl, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-mobile-demo-key": config.accessKey,
-      "x-mobile-student-email": config.studentEmail,
-      "x-mobile-student-invite-code": config.studentInviteCode,
-    },
-    body: JSON.stringify({
-      query,
-      variables,
-    }),
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => {
+    controller.abort();
+  }, NETWORK_TIMEOUT_MS);
+
+  let response: Response;
+
+  try {
+    response = await fetch(config.graphqlUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-mobile-demo-key": config.accessKey,
+        "x-mobile-student-email": config.studentEmail,
+        ...(config.studentInviteCode
+          ? { "x-mobile-student-invite-code": config.studentInviteCode }
+          : {}),
+      },
+      body: JSON.stringify({
+        query,
+        variables,
+      }),
+      signal: controller.signal,
+    });
+  } catch (caughtError) {
+    if (caughtError instanceof Error && caughtError.name === "AbortError") {
+      throw new Error("Сервертэй холбогдох хугацаа хэтэрлээ. Backend ажиллаж байгаа эсэхийг шалгана уу.");
+    }
+
+    throw new Error("Сервертэй холбогдож чадсангүй. Backend болон утас нэг сүлжээнд байгаа эсэхийг шалгана уу.");
+  } finally {
+    clearTimeout(timeout);
+  }
 
   if (!response.ok) {
     throw new Error(`GraphQL хүсэлт ${response.status} кодтой уналаа.`);
@@ -310,6 +391,8 @@ function mapStudentProfile(payload: RemoteStudentProfile["studentById"]): Studen
     email: payload.email,
     role: "student",
     phone: payload.phone,
+    grade: payload.grade,
+    className: payload.className,
     inviteCode: payload.inviteCode,
   };
 }
@@ -366,13 +449,13 @@ function mapSubmissionSummary(
     title: payload.title,
     subject: payload.subject,
     grade: payload.grade,
+    scheduledDate: payload.scheduledDate,
+    startTime: payload.startTime,
     duration: payload.duration,
     questionCount: payload.questionCount,
     correctAnswers: payload.correctAnswers,
     scorePercent: payload.scorePercent,
     submittedAt: payload.submittedAt,
-    scheduledDate: null,
-    startTime: null,
     answers: [],
   };
 }
@@ -397,6 +480,8 @@ function mapSubmission(payload: RemoteSubmissionDetail["studentExamSubmissionDet
       question: answer.question,
       type: "mcq",
       answerText: answer.answerText,
+      correctAnswerText: answer.correctAnswerText,
+      aiExplanation: answer.aiExplanation,
       selectedChoiceId: answer.selectedChoiceId,
       correctChoiceId: answer.correctChoiceId,
       isCorrect: answer.isCorrect,
@@ -417,6 +502,11 @@ export async function fetchRemoteStudentProfile() {
 export async function fetchRemoteAvailableExams() {
   const payload = await fetchGraphql<RemoteAvailableExams>(GET_AVAILABLE_EXAMS);
   return payload.availableExamsForStudent.map(mapAvailableExamSummary);
+}
+
+export async function fetchRemoteScheduledExams() {
+  const payload = await fetchGraphql<RemoteScheduledExams>(GET_SCHEDULED_EXAMS);
+  return payload.scheduledExamsForStudent.map(mapAvailableExamSummary);
 }
 
 export async function fetchRemoteExamById(examId: string) {
@@ -443,4 +533,14 @@ export async function submitRemoteStudentExam(input: {
 }) {
   const payload = await fetchGraphql<SubmitStudentExamResponse>(SUBMIT_STUDENT_EXAM, { input });
   return payload.submitStudentExam;
+}
+
+export async function changeRemoteStudentClassroom(inviteCode: string) {
+  const payload = await fetchGraphql<ChangeStudentClassroomResponse>(CHANGE_STUDENT_CLASSROOM, {
+    input: {
+      inviteCode: inviteCode.trim().toUpperCase(),
+    },
+  });
+
+  return mapStudentProfile(payload.changeStudentClassroom);
 }

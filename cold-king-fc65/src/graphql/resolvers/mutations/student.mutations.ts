@@ -7,6 +7,7 @@ import type { GraphQLContext } from "../../../server";
 import {
 	getAccessibleExamForStudent,
 	loadQuestionsWithChoices,
+	requireStudentRecord,
 } from "../student-exam.helpers";
 import { assertAuthenticated, badUserInputError } from "../../errors";
 
@@ -32,6 +33,7 @@ export const studentMutation = {
 		) => {
 			const userId = assertAuthenticated(context);
 			const normalizedCode = args.input.inviteCode.trim().toUpperCase();
+			const normalizedEmail = args.input.email.trim().toLowerCase();
 			const classroom = await context.db
 				.select()
 				.from(classrooms)
@@ -45,7 +47,7 @@ export const studentMutation = {
 			const values = {
 				firstName: args.input.firstName,
 				lastName: args.input.lastName,
-				email: args.input.email,
+				email: normalizedEmail,
 				phone: args.input.phone,
 				grade: getGradeFromClassName(classroom.className),
 				className: classroom.className,
@@ -55,7 +57,7 @@ export const studentMutation = {
 			};
 
 			const existing = await context.db
-				.select({ id: students.id })
+				.select({ id: students.id, email: students.email })
 				.from(students)
 				.where(eq(students.id, userId))
 				.get();
@@ -69,12 +71,64 @@ export const studentMutation = {
 					.get();
 			}
 
+			const existingByEmail = await context.db
+				.select({ id: students.id })
+				.from(students)
+				.where(eq(students.email, normalizedEmail))
+				.get();
+
+			if (existingByEmail) {
+				return context.db
+					.update(students)
+					.set({
+						id: userId,
+						...values,
+					})
+					.where(eq(students.id, existingByEmail.id))
+					.returning()
+					.get();
+			}
+
 			return context.db
 				.insert(students)
 				.values({
 					id: userId,
 					...values,
 				})
+				.returning()
+				.get();
+		},
+		changeStudentClassroom: async (
+			_: unknown,
+			args: {
+				input: {
+					inviteCode: string;
+				};
+			},
+			context: GraphQLContext,
+		) => {
+			const student = await requireStudentRecord(context);
+			const normalizedCode = args.input.inviteCode.trim().toUpperCase();
+			const classroom = await context.db
+				.select()
+				.from(classrooms)
+				.where(eq(classrooms.classCode, normalizedCode))
+				.get();
+
+			if (!classroom) {
+				throw badUserInputError("Invalid class code.");
+			}
+
+			return context.db
+				.update(students)
+				.set({
+					grade: getGradeFromClassName(classroom.className),
+					className: classroom.className,
+					inviteCode: classroom.classCode,
+					classroomId: classroom.id,
+					teacherId: classroom.teacherId,
+				})
+				.where(eq(students.id, student.id))
 				.returning()
 				.get();
 		},

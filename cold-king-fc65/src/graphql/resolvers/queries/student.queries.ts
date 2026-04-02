@@ -7,9 +7,11 @@ import type { GraphQLContext } from '../../../server';
 import {
 	getAccessibleExamForStudent,
 	isExamOpenNow,
+	isExamScheduledForFuture,
 	loadQuestionsWithChoices,
 	requireStudentRecord,
 } from '../student-exam.helpers';
+import { generateIncorrectAnswerExplanation } from '../ai-explanation';
 import { announcedExamGrades } from '../../../db/schemas/announcedExamGrades.schema';
 import { announcedExams } from '../../../db/schemas/announcedExams.schema';
 import { notFoundError } from '../../errors';
@@ -74,6 +76,58 @@ export const studentQuery = {
 
 			return examSummaries;
 		},
+		scheduledExamsForStudent: async (_: unknown, _args: unknown, context: GraphQLContext) => {
+			const student = await requireStudentRecord(context);
+			const scheduledAnnouncements = await context.db
+				.select()
+				.from(announcedExamGrades)
+				.innerJoin(announcedExams, eq(announcedExamGrades.announcedExamId, announcedExams.id))
+				.innerJoin(exams, eq(announcedExams.examId, exams.id))
+				.where(eq(announcedExamGrades.classroomId, student.classroomId))
+				.all();
+
+			const submissions = await context.db
+				.select()
+				.from(studentExamSubmissions)
+				.where(eq(studentExamSubmissions.studentId, student.id))
+				.all();
+			const submittedExamIds = new Set(submissions.map((submission) => submission.examId));
+
+			const examSummaries = await Promise.all(
+				scheduledAnnouncements
+					.filter(
+						({ announced_exams, exams }) =>
+							!submittedExamIds.has(exams.id) &&
+							isExamScheduledForFuture({
+								openStatus: announced_exams.openStatus,
+								scheduledDate: announced_exams.scheduledDate,
+								startTime: announced_exams.startTime,
+							}),
+					)
+					.map(async ({ exams: exam, announced_exams }) => {
+						const questionCount = (await loadQuestionsWithChoices(context, exam.id)).length;
+
+						return {
+							id: announced_exams.id,
+							examId: exam.id,
+							title: exam.title,
+							subject: exam.subject,
+							description: exam.description,
+							grade: exam.grade,
+							scheduledDate: announced_exams.scheduledDate,
+							startTime: announced_exams.startTime,
+							duration: exam.duration,
+							questionCount,
+						};
+					}),
+			);
+
+			return examSummaries.sort((left, right) =>
+				`${left.scheduledDate ?? ''} ${left.startTime ?? ''}`.localeCompare(
+					`${right.scheduledDate ?? ''} ${right.startTime ?? ''}`,
+				),
+			);
+		},
 		studentExamDetail: async (_: unknown, args: { examId: string }, context: GraphQLContext) => {
 			const { exam } = await getAccessibleExamForStudent(context, args.examId);
 			const examQuestions = await loadQuestionsWithChoices(context, exam.id);
@@ -118,6 +172,11 @@ export const studentQuery = {
 			return Promise.all(
 				orderedSubmissions.map(async (submission) => {
 					const exam = await context.db.select().from(exams).where(eq(exams.id, submission.examId)).get();
+					const announcedExam = await context.db
+						.select()
+						.from(announcedExams)
+						.where(eq(announcedExams.examId, submission.examId))
+						.get();
 
 					if (!exam) {
 						throw new Error('Exam not found for submission.');
@@ -129,6 +188,8 @@ export const studentQuery = {
 						title: exam.title,
 						subject: exam.subject,
 						grade: exam.grade,
+						scheduledDate: announcedExam?.scheduledDate ?? null,
+						startTime: announcedExam?.startTime ?? null,
 						duration: exam.duration,
 						questionCount: submission.totalQuestions,
 						correctAnswers: submission.correctAnswers,
@@ -192,9 +253,27 @@ export const studentQuery = {
 				correctAnswers: submission.correctAnswers,
 				scorePercent: submission.scorePercent,
 				submittedAt: submission.submittedAt,
-				answers: examQuestions.map((question) => {
+				answers: await Promise.all(examQuestions.map(async (question) => {
 					const answer = answerRows.find((row) => row.questionId === question.id);
 					const correctChoiceId = question.type === 'mcq' ? (question.choices.find((choice) => choice.isCorrect)?.id ?? null) : null;
+					const correctAnswerText =
+						question.type !== 'mcq'
+							? (question.choices.find((choice) => choice.isCorrect)?.text ?? null)
+							: null;
+					const selectedChoiceText =
+						question.type === 'mcq'
+							? (question.choices.find((choice) => choice.id === answer?.selectedChoiceId)?.text ?? null)
+							: answer?.answerText ?? null;
+					const shouldGenerateExplanation =
+						question.type === 'mcq' && Boolean(correctChoiceId) && answer?.isCorrect === false;
+					const aiExplanation = shouldGenerateExplanation
+						? await generateIncorrectAnswerExplanation(context, {
+							question: question.question,
+							correctAnswer:
+								question.choices.find((choice) => choice.id === correctChoiceId)?.text ?? 'Зөв хариулт олдсонгүй.',
+							studentAnswer: selectedChoiceText,
+						})
+						: null;
 
 					return {
 						questionId: question.id,
@@ -202,6 +281,8 @@ export const studentQuery = {
 						question: question.question,
 						type: question.type,
 						answerText: answer?.answerText ?? null,
+						correctAnswerText,
+						aiExplanation,
 						selectedChoiceId: answer?.selectedChoiceId ?? null,
 						correctChoiceId,
 						isCorrect: question.type === 'mcq' ? (answer?.isCorrect ?? false) : null,
@@ -211,7 +292,7 @@ export const studentQuery = {
 							text: choice.text,
 						})),
 					};
-				}),
+				})),
 			};
 		},
 	},

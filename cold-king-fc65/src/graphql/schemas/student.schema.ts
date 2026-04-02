@@ -65,6 +65,8 @@ export const studentTypeDefs = gql`
 		title: String!
 		subject: String!
 		grade: String!
+		scheduledDate: String
+		startTime: String
 		duration: Int!
 		questionCount: Int!
 		correctAnswers: Int!
@@ -78,6 +80,8 @@ export const studentTypeDefs = gql`
 		question: String!
 		type: QuestionType!
 		answerText: String
+		correctAnswerText: String
+		aiExplanation: String
 		selectedChoiceId: String
 		correctChoiceId: String
 		isCorrect: Boolean
@@ -104,6 +108,7 @@ export const studentTypeDefs = gql`
 		students: [Student]!
 		studentById(id: String): Student!
 		availableExamsForStudent: [StudentAvailableExam!]!
+		scheduledExamsForStudent: [StudentAvailableExam!]!
 		studentExamDetail(examId: String!): StudentExamDetail!
 		myExamSubmissions: [StudentExamSubmission!]!
 		studentExamSubmissionDetail(submissionId: String!): StudentExamSubmissionDetail!
@@ -114,6 +119,10 @@ export const studentTypeDefs = gql`
 		lastName: String!
 		email: String!
 		phone: String!
+		inviteCode: String!
+	}
+
+	input ChangeStudentClassroomInput {
 		inviteCode: String!
 	}
 
@@ -131,6 +140,7 @@ export const studentTypeDefs = gql`
 
 	type Mutation {
 		upsertStudent(input: upsertStudentInput!): Student
+		changeStudentClassroom(input: ChangeStudentClassroomInput!): Student!
 		submitStudentExam(input: SubmitStudentExamInput!): StudentExamSubmission!
 	}
 `;

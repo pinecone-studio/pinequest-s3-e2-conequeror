@@ -3,7 +3,7 @@
 import { gql } from "@apollo/client";
 import { useMutation, useQuery } from "@apollo/client/react";
 import { useAuth } from "@clerk/nextjs";
-import { ChevronDown, Plus, Upload } from "lucide-react";
+import { CalendarDays, ChevronDown, Clock3, Plus, Upload } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { TeacherMaterialCard } from "../_component/TeacherMaterialCard";
@@ -113,12 +113,17 @@ const subjectOptions = [
   { value: "physics", label: "Физик" },
 ] as const;
 
+const gradeOptions = Array.from({ length: 12 }, (_, index) =>
+  String(index + 1),
+);
 const durationOptions = [30, 45, 60, 90, 120] as const;
 
 const fieldClassName =
   "h-[56px] w-full rounded-[14px] border border-[#E9E0F7] bg-white px-4 text-[16px] text-[#1A1623] outline-none transition placeholder:text-[#8E8A94] focus:border-[#B69AF8] focus:ring-4 focus:ring-[#B69AF8]/15";
 const scheduleDialogFieldClassName =
   "h-[50px] w-full rounded-[12px] border border-[#E9E0F7] bg-white px-4 text-[16px] text-[#1A1623] outline-none transition placeholder:text-[#8E8A94] focus:border-[#B69AF8] focus:ring-4 focus:ring-[#B69AF8]/15 disabled:cursor-not-allowed disabled:bg-[#FAF8FE] disabled:text-[#8E8A94]";
+const schedulePickerInputClassName =
+  `${scheduleDialogFieldClassName} pr-14 [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:pointer-events-none`;
 
 function formatScheduledDate(date: string | null) {
   if (!date) {
@@ -130,7 +135,7 @@ function formatScheduledDate(date: string | null) {
     return date;
   }
 
-  return `${month}.${day}.${year}`;
+  return `${day}.${month}.${year}`;
 }
 
 function getDefaultScheduleDate() {
@@ -144,11 +149,10 @@ function getDefaultScheduleDate() {
 
 function getDefaultScheduleTime() {
   const now = new Date();
+  const hours = String(now.getHours()).padStart(2, "0");
+  const minutes = String(now.getMinutes()).padStart(2, "0");
 
-  return [
-    String(now.getHours()).padStart(2, "0"),
-    String(now.getMinutes()).padStart(2, "0"),
-  ].join(":");
+  return `${hours}:${minutes}`;
 }
 
 function mapExamToCard(exam: TeacherExamRecord): ExamCard {
@@ -170,6 +174,8 @@ function mapExamToCard(exam: TeacherExamRecord): ExamCard {
 
 export default function TeacherExamsPage() {
   const { isLoaded, isSignedIn } = useAuth();
+  const scheduleDateInputRef = useRef<HTMLInputElement | null>(null);
+  const scheduleTimeInputRef = useRef<HTMLInputElement | null>(null);
   const [activeTab, setActiveTab] = useState<SubjectKey>("all");
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [title, setTitle] = useState("");
@@ -415,13 +421,24 @@ export default function TeacherExamsPage() {
                   <label className="block text-[16px] font-medium text-[#111111]">
                     Анги
                   </label>
-                  <div>
-                    <input
-                      className={fieldClassName}
-                      placeholder="Анги, бүлэг"
+                  <div className="relative">
+                    <select
                       value={examGrade}
-                      onChange={(e) => setExamGrade(e.target.value)}
-                    />
+                      onChange={(event) => setExamGrade(event.target.value)}
+                      className={`${fieldClassName} appearance-none pr-14 ${
+                        examGrade ? "" : "text-[#8E8A94]"
+                      }`}
+                    >
+                      <option value="" disabled>
+                        Анги сонгох
+                      </option>
+                      {gradeOptions.map((option) => (
+                        <option key={option} value={option}>
+                          {option}-р анги
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#8E8A94]" />
                   </div>
                 </div>
 
@@ -590,24 +607,45 @@ export default function TeacherExamsPage() {
               <label className="block text-[16px] font-semibold text-[#111111]">
                 Өдөр
               </label>
-              <input
-                type="date"
-                value={scheduleDate}
-                onChange={(event) => setScheduleDate(event.target.value)}
-                className={scheduleDialogFieldClassName}
-              />
+              <div className="relative">
+                <input
+                  ref={scheduleDateInputRef}
+                  type="date"
+                  value={scheduleDate}
+                  onChange={(event) => setScheduleDate(event.target.value)}
+                  className={schedulePickerInputClassName}
+                  min={new Date().toISOString().split("T")[0]}
+                />
+                <button
+                  type="button"
+                  onClick={() => scheduleDateInputRef.current?.showPicker?.()}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-[#111111]"
+                >
+                  <CalendarDays className="h-5 w-5" />
+                </button>
+              </div>
             </div>
 
             <div className="space-y-3">
               <label className="block text-[16px] font-semibold text-[#111111]">
                 Эхлэх цаг
               </label>
-              <input
-                type="time"
-                value={scheduleStartTime}
-                onChange={(event) => setScheduleStartTime(event.target.value)}
-                className={scheduleDialogFieldClassName}
-              />
+              <div className="relative">
+                <input
+                  ref={scheduleTimeInputRef}
+                  type="time"
+                  value={scheduleStartTime}
+                  onChange={(event) => setScheduleStartTime(event.target.value)}
+                  className={schedulePickerInputClassName}
+                />
+                <button
+                  type="button"
+                  onClick={() => scheduleTimeInputRef.current?.showPicker?.()}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-[#111111]"
+                >
+                  <Clock3 className="h-5 w-5" />
+                </button>
+              </div>
             </div>
           </div>
 

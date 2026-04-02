@@ -1,8 +1,10 @@
+import { router } from "expo-router";
 import { Alert, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { StatusCard } from "@/components/StatusCard";
 import { useAppData } from "@/data/app-data";
+import { useLocalAuth } from "@/lib/local-auth";
 import { colors, fonts, shadows } from "@/lib/theme";
 
 function getInitials(fullName: string) {
@@ -18,6 +20,7 @@ function getInitials(fullName: string) {
 
 export default function ProfileScreen() {
   const { student, submissions, availableExams, isRemoteData, resetData } = useAppData();
+  const { signOut } = useLocalAuth();
 
   const handleReset = () => {
     Alert.alert(
@@ -66,22 +69,36 @@ export default function ProfileScreen() {
         <View style={styles.infoCard}>
           <InfoRow label="Төрөл" value="Сурагч" />
           <InfoRow label="Утас" value={student.phone} />
-          <InfoRow label="Анги" value={student.inviteCode} />
+          <InfoRow label="Анги" value={student.className} />
+          <InfoRow label="Ангийн код" value={student.inviteCode} />
         </View>
 
         <StatusCard
           tone="info"
           message={
             isRemoteData
-              ? "Энэ профайлын мэдээлэл одоогоор backend-ээс ачаалагдаж байна."
+              ? "Энэ app одоогоор .env дээр тохируулсан нэг сурагчийн account-аар backend-ээс өгөгдлөө авч байна."
               : "Энэ хэсэг одоогоор төхөөрөмж дээрх туршилтын өгөгдлөөр ажиллаж байна."
           }
         />
 
         <PrimaryButton
+          label="Анги солих"
+          onPress={() => {
+            router.push("/(student)/profile/classroom");
+          }}
+          variant="secondary"
+        />
+        <PrimaryButton
           label={isRemoteData ? "Өгөгдөл шинэчлэх" : "Үр дүн цэвэрлэх"}
           onPress={handleReset}
           variant="secondary"
+        />
+        <PrimaryButton
+          label="Гарах"
+          onPress={() => {
+            void signOut();
+          }}
         />
       </ScrollView>
     </SafeAreaView>

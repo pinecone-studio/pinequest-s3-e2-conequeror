@@ -32,6 +32,8 @@ export type SubmissionAnswer = {
   question: string;
   type: "mcq";
   answerText: string | null;
+  correctAnswerText?: string | null;
+  aiExplanation?: string | null;
   selectedChoiceId: string | null;
   correctChoiceId: string | null;
   isCorrect: boolean | null;
@@ -66,5 +68,7 @@ export type StudentProfile = {
   email: string;
   role: "student";
   phone: string;
+  grade: string;
+  className: string;
   inviteCode: string;
 };
