@@ -25,7 +25,7 @@ export default async function TeacherLayout({
   const firstName =
     typeof rawFirstName === "string" && rawFirstName.trim()
       ? rawFirstName
-      : user?.firstName ?? displayName;
+      : (user?.firstName ?? displayName);
   const lastName =
     typeof rawLastName === "string" && rawLastName.trim() ? rawLastName : "";
   const phone = typeof rawPhone === "string" ? rawPhone : "";
@@ -39,8 +39,8 @@ export default async function TeacherLayout({
     <div className="min-h-screen bg-[#FCFCFE]">
       <TeacherHeader />
 
-      <div className="mx-auto w-full max-w-[1360px] px-6 pt-4 lg:px-8">
-        {hasTeacherSyncMetadata ? (
+      {hasTeacherSyncMetadata ? (
+        <div className="hidden">
           <CloudflareStudentSync
             email={email}
             firstName={firstName}
@@ -51,12 +51,10 @@ export default async function TeacherLayout({
             inviteCode=""
             role={role}
           />
-        ) : null}
-      </div>
+        </div>
+      ) : null}
 
-      <main className="mx-auto w-full max-w-[1360px] px-6 py-10 lg:px-8">
-        {children}
-      </main>
+      <main className="mx-auto w-full max-w-[1128px]">{children}</main>
     </div>
   );
 }

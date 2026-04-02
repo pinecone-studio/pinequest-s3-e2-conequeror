@@ -129,3 +129,41 @@ export function getSubjectDisplayLabel(subject: string) {
 
   return "Нийгэм";
 }
+
+export function formatExamGradeLabel(grade: string) {
+  const normalizedGrade = grade.trim();
+
+  if (!normalizedGrade) {
+    return "-";
+  }
+
+  if (normalizedGrade.includes("анги")) {
+    return normalizedGrade;
+  }
+
+  const gradeMatch = normalizedGrade.match(/^(\d{1,2})/);
+
+  if (gradeMatch?.[1]) {
+    return `${gradeMatch[1]}-р анги`;
+  }
+
+  return normalizedGrade;
+}
+
+export function getExamClassLabel(
+  classroomName: string | null | undefined,
+  gradeFallback: string,
+) {
+  const normalizedClassroomName = classroomName?.trim() ?? "";
+
+  if (normalizedClassroomName) {
+    const [classroomKey] = normalizedClassroomName.split(" - ");
+    const gradeMatch = classroomKey?.match(/^(\d{1,2})/);
+
+    if (gradeMatch?.[1]) {
+      return `${gradeMatch[1]}-р анги`;
+    }
+  }
+
+  return formatExamGradeLabel(gradeFallback);
+}

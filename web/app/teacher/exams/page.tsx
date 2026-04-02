@@ -6,7 +6,7 @@ import { useAuth } from "@clerk/nextjs";
 import { ChevronDown, Plus, Upload } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { TeacherExamCard } from "../_component/TeacherExamCard";
+import { TeacherMaterialCard } from "../_component/TeacherMaterialCard";
 import {
   subjectTabs,
   type ExamCard,
@@ -169,7 +169,6 @@ function mapExamToCard(exam: TeacherExamRecord): ExamCard {
 }
 
 export default function TeacherExamsPage() {
-
   const { isLoaded, isSignedIn } = useAuth();
   const [activeTab, setActiveTab] = useState<SubjectKey>("all");
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -338,11 +337,11 @@ export default function TeacherExamsPage() {
     <>
       <section className="space-y-12">
         <div className="flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <h1 className="font-display text-[32px] font-semibold tracking-tight text-[#17131F]">
-              Шалгалтууд
+          <div className="pt-7">
+            <h1 className="text-[28px] font-medium text-[#17131F]">
+              Материалууд
             </h1>
-            <p className="font-display mt-1 text-[16px] font-medium text-[#787482]">
+            <p className="mt-1 text-[16px] font-medium text-[#787482]">
               Хичээлийн шалгалтын материалууд
             </p>
           </div>
@@ -358,9 +357,9 @@ export default function TeacherExamsPage() {
             }}
           >
             <DialogTrigger asChild>
-              <button className="inline-flex h-14 items-center gap-3 rounded-[22px] bg-[#9E81F0] px-8 text-[18px] font-semibold text-white shadow-[inset_0_-5px_0_rgba(103,79,184,0.38),0_12px_22px_rgba(158,129,240,0.28)] transition hover:translate-y-[-1px] hover:opacity-95">
-                <Plus className="h-6 w-6" />
-                Шинэ шалгалт
+              <button className="inline-flex h-11 w-33 items-center justify-center gap-[6px] rounded-[18px] bg-[#9E81F0] text-[16px] font-medium text-white shadow-[inset_0_-5px_0_rgba(103,79,184,0.38),0_12px_22px_rgba(158,129,240,0.28)] transition hover:translate-y-[-1px] hover:opacity-95">
+                <Plus className="h-5 w-5" />
+                Материал
               </button>
             </DialogTrigger>
 
@@ -383,8 +382,9 @@ export default function TeacherExamsPage() {
                     <select
                       value={subject}
                       onChange={(event) => setSubject(event.target.value)}
-                      className={`${fieldClassName} appearance-none pr-14 text-[#1A1623] ${subject ? "" : "text-[#8E8A94]"
-                        }`}
+                      className={`${fieldClassName} appearance-none pr-14 text-[#1A1623] ${
+                        subject ? "" : "text-[#8E8A94]"
+                      }`}
                     >
                       <option value="" disabled>
                         Хичээл сонгох
@@ -417,8 +417,8 @@ export default function TeacherExamsPage() {
                   </label>
                   <div>
                     <input
-                      className="border w-full h-10 rounded-lg"
-                      placeholder="angi"
+                      className={fieldClassName}
+                      placeholder="Анги, бүлэг"
                       value={examGrade}
                       onChange={(e) => setExamGrade(e.target.value)}
                     />
@@ -512,10 +512,11 @@ export default function TeacherExamsPage() {
                   key={tab.key}
                   type="button"
                   onClick={() => setActiveTab(tab.key)}
-                  className={`border-b-2 pb-3 transition-colors ${isActive
+                  className={`border-b-2 pb-3 transition-colors ${
+                    isActive
                       ? "border-[#9A7BFF] text-[#9A7BFF]"
                       : "border-transparent text-[#25232A]"
-                    }`}
+                  }`}
                 >
                   {tab.label}
                 </button>
@@ -526,11 +527,10 @@ export default function TeacherExamsPage() {
 
         <div className="grid gap-7 md:grid-cols-2 xl:grid-cols-4">
           {filteredCards.map((card) => (
-            <TeacherExamCard
+            <TeacherMaterialCard
               key={card.id}
               card={card}
               href={`/teacher/exams/${card.id}`}
-              showActionButton
               onActionClick={openScheduleDialog}
             />
           ))}
@@ -567,8 +567,9 @@ export default function TeacherExamsPage() {
                     setSelectedScheduleClassroomId(event.target.value)
                   }
                   disabled={!hasCreateClassroomOptions}
-                  className={`${fieldClassName} appearance-none pr-14 ${effectiveScheduleClassroomId ? "" : "text-[#8E8A94]"
-                    }`}
+                  className={`${fieldClassName} appearance-none pr-14 ${
+                    effectiveScheduleClassroomId ? "" : "text-[#8E8A94]"
+                  }`}
                 >
                   <option value="" disabled>
                     {hasCreateClassroomOptions

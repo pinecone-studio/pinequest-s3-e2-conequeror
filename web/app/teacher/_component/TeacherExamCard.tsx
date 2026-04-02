@@ -10,21 +10,12 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
-import type { CSSProperties } from "react";
 import {
+  getExamClassLabel,
   getSubjectDisplayLabel,
   getSubjectCardPalette,
   type ExamCard,
 } from "../_data/dashboard";
-
-function getActionButtonStyles(card: ExamCard): CSSProperties {
-  const palette = getSubjectCardPalette(card.subject);
-  return {
-    background: palette.actionButtonBackground,
-    boxShadow:
-      `inset 0 -5px 0 ${palette.actionButtonInsetShadow}, 0 8px 16px ${palette.actionButtonDropShadow}`,
-  };
-}
 
 const subjectIconMap: Record<ExamCard["subject"], LucideIcon> = {
   social: Globe,
@@ -38,21 +29,23 @@ const subjectIconMap: Record<ExamCard["subject"], LucideIcon> = {
 type TeacherExamCardProps = {
   card: ExamCard;
   href: string;
-  showActionButton?: boolean;
-  onActionClick?: (card: ExamCard) => void;
 };
 
-export function TeacherExamCard({
-  card,
-  href,
-  showActionButton = false,
-  onActionClick,
-}: TeacherExamCardProps) {
+export function TeacherExamCard({ card, href }: TeacherExamCardProps) {
   const palette = getSubjectCardPalette(card.subject);
   const SubjectIcon = subjectIconMap[card.subject];
+  const classLabel = getExamClassLabel(card.classroomName, card.grade);
+  const topicLabel = card.topic.trim();
 
-  const cardContent = (
-    <>
+  return (
+    <Link
+      href={href}
+      className="group flex h-[252px] w-[264px] flex-none flex-col rounded-[24px] border px-5 py-5 transition hover:-translate-y-0.5 hover:shadow-md"
+      style={{
+        backgroundColor: palette.cardBackground,
+        borderColor: palette.borderColor,
+      }}
+    >
       <div
         className="flex h-11 w-11 items-center justify-center rounded-xl"
         style={{ backgroundColor: palette.iconBackground }}
@@ -63,11 +56,11 @@ export function TeacherExamCard({
       <div className="mt-4">
         <h2 className="text-[18px] font-semibold text-[#111111]">
           {card.title}
-          <span className="font-normal"> /{card.topic}/</span>
+          {topicLabel ? (
+            <span className="font-normal text-[#5F5B69]"> /{topicLabel}/</span>
+          ) : null}
         </h2>
-        <p className="text-sm text-[#6B6B6B]">
-          {card.classroomName || card.grade}
-        </p>
+        <p className="mt-1 text-sm text-[#6B6B6B]">{classLabel}</p>
       </div>
 
       <div className="mt-5 flex gap-2 text-xs">
@@ -80,56 +73,13 @@ export function TeacherExamCard({
           {card.taskCount} даалгавар
         </span>
       </div>
-    </>
-  );
 
-  if (showActionButton) {
-    return (
-      <div
-        className="group flex min-h-[284px] flex-col rounded-2xl border px-5 py-5 transition hover:-translate-y-0.5 hover:shadow-md"
-        style={{
-          backgroundColor: palette.cardBackground,
-          borderColor: palette.borderColor,
-        }}
-      >
-        <Link href={href} className="block">
-          {cardContent}
-        </Link>
-
-        <div className="mt-auto pt-6">
-          <button
-            type="button"
-            onClick={() => onActionClick?.(card)}
-            className="flex h-11 w-full items-center justify-center rounded-full text-[16px] font-semibold text-white"
-            style={getActionButtonStyles(card)}
-          >
-            Шалгалт авах
-          </button>
-        </div>
+      <div className="mt-auto">
+        <p className="text-sm text-[#111111]">
+          {getSubjectDisplayLabel(card.subject)} / {card.startTime || "--:--"}
+        </p>
+        <p className="mt-2 text-xs text-[#6D6778]">{card.date || "-"}</p>
       </div>
-    );
-  }
-
-  return (
-    <Link
-      href={href}
-      className="group block rounded-2xl border px-5 py-5 transition hover:-translate-y-0.5 hover:shadow-md"
-      style={{
-        backgroundColor: palette.cardBackground,
-        borderColor: palette.borderColor,
-      }}
-    >
-      {cardContent}
-      {showActionButton ? (
-        <></>
-      ) : (
-        <>
-          <p className="mt-4 text-sm text-[#111111]">
-            {getSubjectDisplayLabel(card.subject)} / {card.startTime || "--:--"}
-          </p>
-          <p className="mt-3 text-xs text-[#6D6778]">{card.date || "-"}</p>
-        </>
-      )}
     </Link>
   );
 }

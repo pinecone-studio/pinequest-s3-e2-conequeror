@@ -2,9 +2,15 @@
 
 import { gql } from "@apollo/client";
 import { useMutation, useQuery } from "@apollo/client/react";
-import { ChevronDown, ChevronLeft, MoreVertical, PencilLine, Trash2 } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronLeft,
+  MoreVertical,
+  QrCode,
+  Users,
+} from "lucide-react";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   Dialog,
@@ -44,23 +50,17 @@ type UpdateClassroomData = {
   };
 };
 
-type DeleteClassroomData = {
-  deleteClassroom: {
-    id: string;
-  };
-};
-
 type SubjectPalette = {
   accentColor: string;
 };
 
 const subjectPaletteMap: Record<string, SubjectPalette> = {
-  "Нийгэм": { accentColor: "#8B6FF7" },
+  Нийгэм: { accentColor: "#8B6FF7" },
   "Иргэний боловсрол": { accentColor: "#73A5F4" },
-  "Математик": { accentColor: "#69B7D5" },
+  Математик: { accentColor: "#69B7D5" },
   "Англи хэл": { accentColor: "#7CA970" },
-  "Хими": { accentColor: "#D98AEF" },
-  "Физик": { accentColor: "#6C95EA" },
+  Хими: { accentColor: "#D98AEF" },
+  Физик: { accentColor: "#6C95EA" },
 };
 
 const GET_TEACHER_CLASSROOM_DETAIL = gql`
@@ -97,14 +97,6 @@ const UPDATE_CLASSROOM_MUTATION = gql`
   }
 `;
 
-const DELETE_CLASSROOM_MUTATION = gql`
-  mutation DeleteClassroom($classroomId: String!) {
-    deleteClassroom(classroomId: $classroomId) {
-      id
-    }
-  }
-`;
-
 const gradeOptions = ["9", "10", "11", "12"];
 
 const dialogFieldClassName =
@@ -117,7 +109,8 @@ function parseClassroomName(className: string) {
   const keyMatch = classroomKey?.match(/^(\d{1,2})(.*)$/);
   const gradeValue = keyMatch?.[1]?.trim() ?? "";
   const sectionValue = keyMatch?.[2]?.trim() ?? "";
-  const palette = subjectPaletteMap[subjectLabel] ?? subjectPaletteMap["Нийгэм"];
+  const palette =
+    subjectPaletteMap[subjectLabel] ?? subjectPaletteMap["Нийгэм"];
 
   return {
     subjectLabel,
@@ -161,7 +154,6 @@ function formatRowValue(value: number | string | null, suffix = "") {
 }
 
 export default function TeacherClassroomDetailPage() {
-  const router = useRouter();
   const params = useParams<{ classroomId: string }>();
   const classroomId = params.classroomId;
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -169,18 +161,13 @@ export default function TeacherClassroomDetailPage() {
   const [selectedGrade, setSelectedGrade] = useState("");
   const [section, setSection] = useState("");
   const [editError, setEditError] = useState("");
-  const [deleteError, setDeleteError] = useState("");
-  const { data, loading, error, refetch } = useQuery<TeacherClassroomDetailData>(
-    GET_TEACHER_CLASSROOM_DETAIL,
-    {
+  const { data, loading, error, refetch } =
+    useQuery<TeacherClassroomDetailData>(GET_TEACHER_CLASSROOM_DETAIL, {
       variables: { classroomId },
       skip: !classroomId,
-    },
-  );
+    });
   const [updateClassroom, { loading: updatingClassroom }] =
     useMutation<UpdateClassroomData>(UPDATE_CLASSROOM_MUTATION);
-  const [deleteClassroom, { loading: deletingClassroom }] =
-    useMutation<DeleteClassroomData>(DELETE_CLASSROOM_MUTATION);
 
   const errorMessage = error
     ? getApolloErrorMessage(error, "Ангийн мэдээлэл ачаалж чадсангүй.")
@@ -198,12 +185,18 @@ export default function TeacherClassroomDetailPage() {
 
     setSelectedSubject(parsedClassroom.subjectLabel);
     setSelectedGrade(parsedClassroom.gradeLabel.replace("-р анги", "").trim());
-    setSection(parsedClassroom.sectionLabel === "Тодорхойгүй" ? "" : parsedClassroom.sectionLabel);
+    setSection(
+      parsedClassroom.sectionLabel === "Тодорхойгүй"
+        ? ""
+        : parsedClassroom.sectionLabel,
+    );
   }, [parsedClassroom]);
 
   if (loading) {
     return (
-      <main className="p-8 text-sm text-[#6F687D]">Ангийн мэдээллийг уншиж байна...</main>
+      <main className="p-8 text-sm text-[#6F687D]">
+        Ангийн мэдээллийг уншиж байна...
+      </main>
     );
   }
 
@@ -214,16 +207,6 @@ export default function TeacherClassroomDetailPage() {
       </main>
     );
   }
-
-  const detailRows = [
-    { label: "Хичээл", value: parsedClassroom.subjectLabel },
-    { label: "Анги", value: parsedClassroom.gradeLabel },
-    { label: "Бүлэг", value: parsedClassroom.sectionLabel },
-    { label: "Сурагчид", value: classroom.studentCount },
-    { label: "Шалгалт", value: detail.examCount },
-    { label: "Дундаж", value: `${detail.averagePercent}%` },
-    { label: "Ангийн код", value: classroom.classCode },
-  ];
 
   const handleUpdateClassroom = async () => {
     try {
@@ -259,31 +242,11 @@ export default function TeacherClassroomDetailPage() {
     }
   };
 
-  const handleDeleteClassroom = async () => {
-    const confirmed = window.confirm("Энэ ангийг устгах уу?");
-
-    if (!confirmed) {
-      return;
-    }
-
-    try {
-      setDeleteError("");
-      await deleteClassroom({
-        variables: { classroomId },
-      });
-      router.push("/teacher");
-    } catch (mutationError) {
-      setDeleteError(
-        getApolloErrorMessage(mutationError, "Ангийг устгаж чадсангүй."),
-      );
-    }
-  };
-
   return (
-    <section className="mx-auto max-w-[1040px] space-y-10">
+    <section className="mx-auto max-w-[1040px]">
       <Link
         href="/teacher"
-        className="inline-flex items-center gap-3 text-[18px] font-medium text-[#36313F] transition hover:text-[#7E66DC]"
+        className="inline-flex items-center gap-3 h-[112px] text-[18px] font-medium text-[#36313F] transition hover:text-[#7E66DC]"
       >
         <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#F3F0FA]">
           <ChevronLeft className="h-5 w-5" />
@@ -291,71 +254,51 @@ export default function TeacherClassroomDetailPage() {
         <span>Буцах</span>
       </Link>
 
-      <div className="grid gap-5 xl:grid-cols-[210px_minmax(0,1fr)]">
+      <div className="grid gap-6 xl:grid-cols-[264px_minmax(0,1fr)]">
         <aside className="self-start xl:sticky xl:top-28">
-          <section className="rounded-[16px] border border-[#E8E2F1] bg-white p-4 shadow-[0_4px_12px_rgba(53,31,107,0.04)]">
-            <div className="space-y-3">
-              {detailRows.slice(0, 3).map((row, index) => (
-                <div
-                  key={row.label}
-                  className="flex items-end justify-between gap-4 text-[14px] text-[#23202A]"
-                >
+          <section className="relative h-[186px] w-[264px] overflow-hidden rounded-[24px] border border-[#E8E2F1] bg-white py-5 shadow-[0_10px_28px_rgba(53,31,107,0.06)]">
+            <div className="relative flex h-full flex-col">
+              <div className="space-y-5">
+                <div className="flex items-center gap-3 pr-6">
                   <span
-                    className={
-                      index === 0
-                        ? "relative pb-1 font-semibold after:absolute after:bottom-0 after:left-0 after:h-[4px] after:w-full after:rounded-full after:bg-[#CFC5F8]"
-                        : "font-medium"
-                    }
-                    style={index === 0 ? { color: parsedClassroom.accentColor } : undefined}
-                  >
-                    {row.label}
-                  </span>
-                  <span className="text-right text-[14px]">{row.value}</span>
+                    className="h-[28px] w-[12px] shrink-0 rounded-r-[12px] opacity-45"
+                    style={{ backgroundColor: parsedClassroom.accentColor }}
+                  />
+                  <h2 className="text-[18px] font-semibold tracking-tight text-[#17131F]">
+                    {parsedClassroom.subjectLabel}
+                  </h2>
                 </div>
-              ))}
-            </div>
 
-            <div className="my-4 h-px bg-[#ECE6F3]" />
+                <div className="space-y-5 px-6">
+                  <p className="text-[16px] font-medium text-[#17131F]">
+                    {parsedClassroom.gradeLabel}
+                  </p>
 
-            <div className="space-y-3">
-              {detailRows.slice(3).map((row) => (
-                <div
-                  key={row.label}
-                  className="flex items-end justify-between gap-4 text-[14px] text-[#23202A]"
-                >
-                  <span className="font-medium">{row.label}</span>
-                  <span className="text-right text-[14px]">{row.value}</span>
+                  <div className="flex items-center gap-4 text-[16px] font-medium text-[#17131F]">
+                    <span>Бүлэг</span>
+                    <span>{parsedClassroom.sectionLabel}</span>
+                  </div>
                 </div>
-              ))}
+              </div>
+
+              <div className="mt-auto border-t border-[#ECE6F3] px-6 pt-2">
+                <div className=" flex w-54 h-7 items-center justify-between">
+                  <div className="flex items-center gap-2.5 text-[#17131F]">
+                    <Users className="h-5 w-5" />
+                    <span className="text-[16px] font-medium">
+                      {classroom.studentCount}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2.5 text-[#17131F]">
+                    <QrCode className="h-5 w-5" />
+                    <span className="text-[16px] font-medium">
+                      {classroom.classCode}
+                    </span>
+                  </div>
+                </div>
+              </div>
             </div>
-
-            <div className="mt-5 flex items-center gap-5 text-[#7F7A89]">
-              <button
-                type="button"
-                onClick={() => {
-                  setEditError("");
-                  setIsEditDialogOpen(true);
-                }}
-                className="transition hover:text-[#7E66DC]"
-                aria-label="Ангийн мэдээлэл засах"
-              >
-                <PencilLine className="h-5 w-5" strokeWidth={1.9} />
-              </button>
-
-              <button
-                type="button"
-                onClick={() => void handleDeleteClassroom()}
-                disabled={deletingClassroom}
-                className="transition hover:text-[#DE5A52] disabled:cursor-not-allowed disabled:opacity-40"
-                aria-label="Анги устгах"
-              >
-                <Trash2 className="h-5 w-5" strokeWidth={1.9} />
-              </button>
-            </div>
-
-            {deleteError ? (
-              <p className="mt-4 text-[14px] text-[#D25B56]">{deleteError}</p>
-            ) : null}
           </section>
         </aside>
 
@@ -470,7 +413,7 @@ export default function TeacherClassroomDetailPage() {
               </div>
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-2 pb-2 ">
               <label className="block text-[16px] font-semibold text-[#111111]">
                 Бүлэг
               </label>
