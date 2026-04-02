@@ -21,6 +21,13 @@ async function getExamAnnouncementMetadata(context: GraphQLContext, examId: stri
 		.get();
 }
 
+function getAnnouncementSortValue(record: {
+	scheduledDate?: string | null;
+	startTime?: string | null;
+}) {
+	return `${record.scheduledDate ?? ""}T${record.startTime ?? ""}`;
+}
+
 export const examQuery = {
 	Exam: {
 		questionCount: async (exam: { id: string }, _args: unknown, context: GraphQLContext) => {
@@ -94,6 +101,44 @@ export const examQuery = {
 				classroomName: classrooms?.className ?? null,
 			}));
 
+		},
+		teacherAnalyticsExams: async (_: unknown, _args: unknown, context: GraphQLContext) => {
+			const teacherId = await requireTeacherId(context);
+			const scheduledExams = await context.db
+				.select()
+				.from(announcedExams)
+				.innerJoin(exams, eq(announcedExams.examId, exams.id))
+				.leftJoin(announcedExamGrades, eq(announcedExamGrades.announcedExamId, announcedExams.id))
+				.leftJoin(classrooms, eq(classrooms.id, announcedExamGrades.classroomId))
+				.where(eq(announcedExams.createdBy, teacherId))
+				.all();
+
+			const uniqueExams = new Map<string, (typeof scheduledExams)[number]["exams"] & {
+				openStatus: boolean;
+				scheduledDate: string | null;
+				startTime: string | null;
+				classroomName: string | null;
+			}>();
+
+			for (const { exams: exam, announced_exams } of scheduledExams) {
+				const candidate = {
+					...exam,
+					openStatus: announced_exams.openStatus,
+					scheduledDate: announced_exams.scheduledDate,
+					startTime: announced_exams.startTime,
+					classroomName: null,
+				};
+				const existing = uniqueExams.get(exam.id);
+
+				if (
+					!existing ||
+					getAnnouncementSortValue(candidate) > getAnnouncementSortValue(existing)
+				) {
+					uniqueExams.set(exam.id, candidate);
+				}
+			}
+
+			return [...uniqueExams.values()];
 		},
 		teacherExamDetail: async (_: unknown, args: { examId: string }, context: GraphQLContext) => {
 			const exam = await getTeacherExam(context, args.examId);
