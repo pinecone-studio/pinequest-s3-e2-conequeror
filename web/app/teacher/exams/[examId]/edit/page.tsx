@@ -38,6 +38,7 @@ import { MathBlock, MathInline } from "@/components/math";
 import { getApolloErrorMessage } from "@/lib/apollo-error";
 import { getCloudflareGraphqlUrl } from "@/lib/cloudflare-sync";
 import { consumeExamPdfDraft } from "@/lib/exam-pdf-draft-store";
+import { uploadExamPdfFile } from "@/lib/exam-pdf-upload";
 import { parseExamQuestionsFromPdfText } from "@/lib/exam-pdf-parser";
 
 type QuestionType = "mcq" | "open" | "short";
@@ -80,6 +81,7 @@ type ExamByIdData = {
       description: string | null;
       duration: number;
       grade: string;
+      fileUrl: string | null;
     };
     questions: {
       id: string;
@@ -121,6 +123,7 @@ type UpdateExamData = {
     description: string | null;
     duration: number;
     grade: string;
+    fileUrl: string | null;
   };
 };
 
@@ -141,6 +144,7 @@ const GET_EXAM_BY_ID = gql`
         description
         duration
         grade
+        fileUrl
       }
       questions {
         id
@@ -188,6 +192,7 @@ const UPDATE_EXAM = gql`
       description
       duration
       grade
+      fileUrl
     }
   }
 `;
@@ -536,6 +541,7 @@ function renderPreviewContent(value: string) {
 export default function TeacherExamEditPage() {
 
   const [pdfParsedText, setPdfParsedText] = useState<string | undefined>(undefined)
+  const [isPdfPreviewOpen, setIsPdfPreviewOpen] = useState(false);
 
   const { getToken } = useAuth();
   const params = useParams<{ examId: string }>();
@@ -557,6 +563,7 @@ export default function TeacherExamEditPage() {
   const [editGrade, setEditGrade] = useState("");
   const [editDuration, setEditDuration] = useState(60);
   const [editUploadedFileName, setEditUploadedFileName] = useState("");
+  const [editUploadedPdfFile, setEditUploadedPdfFile] = useState<File | null>(null);
   const [editExamError, setEditExamError] = useState("");
   const [deleteExamError, setDeleteExamError] = useState("");
   const [savedQuestionIds, setSavedQuestionIds] = useState<Set<string>>(
@@ -931,6 +938,7 @@ export default function TeacherExamEditPage() {
         ? source.description.replace("Файл: ", "")
         : "",
     );
+    setEditUploadedPdfFile(null);
     setEditExamError("");
     setIsExamDialogOpen(true);
   };
@@ -995,6 +1003,13 @@ export default function TeacherExamEditPage() {
 
     try {
       setEditExamError("");
+      const fileUrl = editUploadedPdfFile
+        ? await uploadExamPdfFile({
+          examId,
+          file: editUploadedPdfFile,
+          token: await getToken(),
+        })
+        : undefined;
 
       const res = await updateExam({
         variables: {
@@ -1007,6 +1022,7 @@ export default function TeacherExamEditPage() {
               : "",
             duration: editDuration,
             grade: editGrade,
+            ...(fileUrl ? { fileUrl } : {}),
           },
         },
       });
@@ -1572,12 +1588,13 @@ export default function TeacherExamEditPage() {
                 <span>{editUploadedFileName || "Файл оруулах"}</span>
                 <input
                   type="file"
+                  accept="application/pdf"
                   className="hidden"
-                  onChange={(event) =>
-                    setEditUploadedFileName(
-                      event.target.files?.[0]?.name ?? "",
-                    )
-                  }
+                  onChange={(event) => {
+                    const selectedFile = event.target.files?.[0] ?? null;
+                    setEditUploadedPdfFile(selectedFile);
+                    setEditUploadedFileName(selectedFile?.name ?? "");
+                  }}
                 />
               </label>
             </div>
@@ -1624,6 +1641,28 @@ export default function TeacherExamEditPage() {
               {updateExamLoading ? "Хадгалж байна..." : "Үргэлжлүүлэх"}
             </button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isPdfPreviewOpen} onOpenChange={setIsPdfPreviewOpen}>
+        <DialogContent className="max-h-[90vh] max-w-[calc(100%-2rem)] overflow-hidden rounded-[24px] border border-[#E8E2F1] bg-white p-0 shadow-[0_20px_70px_rgba(28,18,54,0.18)] sm:max-w-[960px]">
+          <DialogHeader className="border-b border-[#ECE6F3] px-6 py-4">
+            <DialogTitle className="text-[28px] font-semibold tracking-tight text-[#111111]">
+              PDF файл
+            </DialogTitle>
+          </DialogHeader>
+
+          {resolvedExamMeta.fileUrl ? (
+            <iframe
+              src={resolvedExamMeta.fileUrl}
+              title={`${resolvedExamMeta.title} PDF`}
+              className="h-[75vh] w-full border-0 bg-[#F7F5FC]"
+            />
+          ) : (
+            <div className="px-6 py-10 text-[15px] text-[#6E6A74]">
+              Энэ шалгалтад PDF файл хадгалагдаагүй байна.
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 
@@ -1695,6 +1734,15 @@ export default function TeacherExamEditPage() {
               </div>
 
               <div className="mt-5 flex items-center gap-5 text-[#7F7A89]">
+                <button
+                  type="button"
+                  onClick={() => setIsPdfPreviewOpen(true)}
+                  disabled={!resolvedExamMeta.fileUrl}
+                  className="transition hover:text-[#7E66DC] disabled:cursor-not-allowed disabled:opacity-40"
+                  aria-label="PDF файл харах"
+                >
+                  <FileText className="h-6 w-6" strokeWidth={1.9} />
+                </button>
                 <button
                   type="button"
                   onClick={openExamEditDialog}

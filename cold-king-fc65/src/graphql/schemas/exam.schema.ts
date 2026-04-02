@@ -122,6 +122,7 @@ export const examTypeDefs = gql`
         examById(examId: String!): Exam!
         myExams: [Exam!]!
         teacherScheduledExams: [Exam!]!
+        teacherAnalyticsExams: [Exam!]!
         teacherExamDetail(examId: String!): TeacherExamDetail!
         teacherExamAnalytics(examId: String!): TeacherExamAnalytics!
         teacherStudentSubmissionDetail(
@@ -155,6 +156,7 @@ export const examTypeDefs = gql`
         description: String
         duration: Int!
         grade: String!
+        fileUrl: String
     }
 
     type Mutation{

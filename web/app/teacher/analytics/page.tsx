@@ -26,7 +26,7 @@ type TeacherAnalyticsExamRecord = {
 };
 
 type TeacherAnalyticsExamsData = {
-  teacherScheduledExams: TeacherAnalyticsExamRecord[];
+  teacherAnalyticsExams: TeacherAnalyticsExamRecord[];
 };
 
 type TeacherAnalyticsDetailData = {
@@ -57,7 +57,7 @@ type TeacherAnalyticsDetailData = {
 
 const GET_TEACHER_ANALYTICS_EXAMS = gql`
   query GetTeacherAnalyticsExams {
-    teacherScheduledExams {
+    teacherAnalyticsExams {
       id
       title
       subject
@@ -237,7 +237,7 @@ export default function TeacherAnalyticsPage() {
 
   const completedExams = useMemo(
     () =>
-      [...(data?.teacherScheduledExams ?? [])]
+      [...(data?.teacherAnalyticsExams ?? [])]
         .filter(isCompletedExam)
         .sort(
           (left, right) =>
@@ -274,8 +274,13 @@ export default function TeacherAnalyticsPage() {
         if (!cancelled) {
           setDetailRecords(
             responses
-              .map((response) => response.data.teacherExamAnalytics)
-              .filter(Boolean),
+              .map((response) => response.data?.teacherExamAnalytics)
+              .filter(
+                (
+                  record,
+                ): record is TeacherAnalyticsDetailData["teacherExamAnalytics"] =>
+                  Boolean(record),
+              ),
           );
         }
       } catch (caughtError) {
@@ -332,8 +337,10 @@ export default function TeacherAnalyticsPage() {
             : 0,
           questionInsights: record.questionInsights
             .filter((item) => item.type === "mcq")
+            .sort((left, right) => left.order - right.order)
             .map((item) => ({
               label: `Асуулт-${item.order}`,
+              order: item.order,
               wrongRate: item.wrongRate ?? 0,
               incorrectCount: item.incorrectCount,
               submissionCount: item.submissionCount,
@@ -366,11 +373,9 @@ export default function TeacherAnalyticsPage() {
   );
 
   const chartPoints = useMemo(
-    () =>
-      [...(selectedExamSummary?.questionInsights ?? [])]
-        .sort((left, right) => right.wrongRate - left.wrongRate)
-        .slice(0, 8)
-        .sort((left, right) => left.wrongRate - right.wrongRate),
+    () => [...(selectedExamSummary?.questionInsights ?? [])].sort(
+      (left, right) => left.order - right.order,
+    ),
     [selectedExamSummary],
   );
 
@@ -430,7 +435,7 @@ export default function TeacherAnalyticsPage() {
       </Link>
 
       <div className="grid gap-5 xl:grid-cols-[280px_minmax(0,1fr)]">
-        <aside className="self-start">
+        <aside className="self-start xl:max-h-[calc(100vh-10rem)] xl:overflow-y-auto xl:pr-2">
           <div className="space-y-4">
             {examSummaries.map((item) => {
               const isActive = item.cardKey === selectedExamSummary?.cardKey;
@@ -487,15 +492,15 @@ export default function TeacherAnalyticsPage() {
           </div>
         </aside>
 
-        <section className="self-start rounded-[16px] border border-[#E8E2F1] bg-white px-6 py-6 shadow-[0_4px_12px_rgba(53,31,107,0.04)]">
+        <section className="self-start rounded-[16px] border border-[#E8E2F1] bg-white px-6 py-6 shadow-[0_4px_12px_rgba(53,31,107,0.04)] xl:sticky xl:top-6">
           <div className="space-y-1">
             <h1 className="text-[18px] font-semibold text-[#1D1A24]">
               {selectedExamSummary
-                ? `${selectedExamSummary.title} - Хамгийн их алддаг асуултууд`
-                : "Хамгийн их алддаг асуултууд"}
+                ? `${selectedExamSummary.title} - Асуултуудын алдааны хувь`
+                : "Асуултуудын алдааны хувь"}
             </h1>
             <p className="text-[14px] text-[#8A8397]">
-              Алдааны давтамж өндөртэй
+              Шалгалтын дарааллаар
             </p>
           </div>
 

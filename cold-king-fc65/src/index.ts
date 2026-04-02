@@ -268,6 +268,61 @@ app.post("/uploads/question-image", async (c) => {
 	});
 });
 
+app.post("/uploads/exam-pdf", async (c) => {
+	if (!c.env.exam_media) {
+		return c.json({ error: "Exam media bucket is not configured." }, 500);
+	}
+
+	const auth = await getRequestAuth(c.req.raw, c.env);
+	if (!auth.isAuthenticated || !auth.userId) {
+		return c.json({ error: "Unauthorized" }, 401);
+	}
+
+	const formData = await c.req.raw.formData();
+	const file = formData.get("file");
+	const examId = String(formData.get("examId") ?? "").trim();
+
+	if (!(file instanceof File)) {
+		return c.json({ error: "No file uploaded." }, 400);
+	}
+
+	if (file.type && file.type !== "application/pdf") {
+		return c.json({ error: "Only PDF uploads are supported." }, 400);
+	}
+
+	if (!examId) {
+		return c.json({ error: "examId is required." }, 400);
+	}
+
+	const safeFileName = sanitizePathSegment(file.name || "exam.pdf");
+	const key = [
+		"exam-pdfs",
+		sanitizePathSegment(auth.userId),
+		sanitizePathSegment(examId),
+		`${Date.now()}-${safeFileName}`,
+	].join("/");
+
+	await c.env.exam_media.put(key, file.stream(), {
+		httpMetadata: {
+			contentType: "application/pdf",
+			contentDisposition: `inline; filename="${safeFileName}"`,
+		},
+		customMetadata: {
+			uploadedBy: auth.userId,
+			examId,
+		},
+	});
+
+	const url = new URL(c.req.url);
+	url.pathname = `/media/${key}`;
+	url.search = "";
+
+	return c.json({
+		key,
+		url: url.toString(),
+	});
+});
+
 app.get("/media/*", async (c) => {
 	if (!c.env.exam_media) {
 		return c.text("Question media bucket is not configured.", 500);

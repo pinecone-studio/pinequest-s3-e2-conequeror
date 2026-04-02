@@ -121,6 +121,7 @@ export const examMutation = {
                     description?: string | null;
                     duration: number;
                     grade: string;
+                    fileUrl?: string | null;
                 };
             },
             context: GraphQLContext,
@@ -144,6 +145,9 @@ export const examMutation = {
                     description: args.input.description ?? null,
                     duration: args.input.duration,
                     grade: args.input.grade,
+                    fileUrl: Object.prototype.hasOwnProperty.call(args.input, "fileUrl")
+                        ? (args.input.fileUrl ?? null)
+                        : exam.fileUrl ?? null,
                 })
                 .where(eq(exams.id, exam.id))
                 .returning()

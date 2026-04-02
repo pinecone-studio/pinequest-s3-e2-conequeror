@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/dialog";
 import { getApolloErrorMessage } from "@/lib/apollo-error";
 import { setExamPdfDraft } from "@/lib/exam-pdf-draft-store";
+import { uploadExamPdfFile } from "@/lib/exam-pdf-upload";
 
 type TeacherExamRecord = {
   id: string;
@@ -52,6 +53,14 @@ type ExamData = {
   createExam: {
     id: string;
     title: string;
+    fileUrl?: string | null;
+  };
+};
+
+type UpdateExamData = {
+  updateExam: {
+    id: string;
+    fileUrl?: string | null;
   };
 };
 
@@ -92,6 +101,16 @@ const CREATE_EXAM = gql`
     createExam(input: $input) {
       id
       title
+      fileUrl
+    }
+  }
+`;
+
+const UPDATE_EXAM_FILE = gql`
+  mutation UpdateExamFile($input: updateExamInput!) {
+    updateExam(input: $input) {
+      id
+      fileUrl
     }
   }
 `;
@@ -173,7 +192,7 @@ function mapExamToCard(exam: TeacherExamRecord): ExamCard {
 }
 
 export default function TeacherExamsPage() {
-  const { isLoaded, isSignedIn } = useAuth();
+  const { getToken, isLoaded, isSignedIn } = useAuth();
   const scheduleDateInputRef = useRef<HTMLInputElement | null>(null);
   const scheduleTimeInputRef = useRef<HTMLInputElement | null>(null);
   const [activeTab, setActiveTab] = useState<SubjectKey>("all");
@@ -209,6 +228,7 @@ export default function TeacherExamsPage() {
   });
   const [createExam, { loading: isCreating }] =
     useMutation<ExamData>(CREATE_EXAM);
+  const [updateExamFile] = useMutation<UpdateExamData>(UPDATE_EXAM_FILE);
   const [scheduleExam, { loading: isScheduling }] =
     useMutation<ScheduleExamData>(SCHEDULE_EXAM);
 
@@ -274,6 +294,27 @@ export default function TeacherExamsPage() {
 
       if (examId) {
         if (uploadedPdfFile) {
+          const token = await getToken();
+          const fileUrl = await uploadExamPdfFile({
+            examId,
+            file: uploadedPdfFile,
+            token,
+          });
+
+          await updateExamFile({
+            variables: {
+              input: {
+                examId,
+                title: title.trim(),
+                subject,
+                description: uploadedFileName ? `Файл: ${uploadedFileName}` : "",
+                duration,
+                grade: examGrade.trim(),
+                fileUrl,
+              },
+            },
+          });
+
           setExamPdfDraft(examId, uploadedPdfFile);
         }
 
