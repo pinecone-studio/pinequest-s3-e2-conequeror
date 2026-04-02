@@ -31,6 +31,7 @@ type StudentExamQuestion = {
   type: "mcq" | "open" | "short";
   question: string;
   order: number;
+  imageUrl?: string | null;
   choices: {
     id: string;
     label: string;
@@ -97,6 +98,7 @@ const GET_STUDENT_EXAM_DETAIL = gql`
         type
         question
         order
+        imageUrl
         choices {
           id
           label
@@ -497,6 +499,16 @@ export default function StudentAccountPage() {
                     1 оноо
                   </span>
                 </div>
+
+                {question.imageUrl ? (
+                  <div className="mt-4 overflow-hidden rounded-[14px] border border-[#EAE6F5] bg-[#FAF9FE]">
+                    <img
+                      src={question.imageUrl}
+                      alt={`${question.order}-р асуултын зураг`}
+                      className="max-h-[420px] w-full object-contain"
+                    />
+                  </div>
+                ) : null}
 
                 {question.type === "mcq" ? (
                   <div className="mt-4 space-y-3">
