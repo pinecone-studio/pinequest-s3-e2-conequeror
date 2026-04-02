@@ -557,21 +557,20 @@ export function AuthScreen({ mode }: AuthScreenProps) {
   }
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[#FEFCFF]">
-      <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_18%_42%,rgba(183,169,255,0.24),transparent_24%),radial-gradient(circle_at_66%_52%,rgba(190,236,255,0.16),transparent_18%),linear-gradient(180deg,#FFFFFF_0%,#FEFBFF_100%)]" />
+    <main className="relative pl-75 pr-52 bg-[#FEFCFF]">
 
-      <section className="mx-auto grid min-h-screen w-full max-w-[1320px] items-center gap-10 px-6 py-8 lg:grid-cols-[minmax(0,1.08fr)_420px] lg:gap-16 lg:px-10 lg:py-12">
+      <section className="mx-auto grid min-h-screen w-full max-w-[1320px] justify-between items-center lg:flex ">
         <div className="order-2 lg:order-1">
-          <div className="relative flex min-h-[380px] items-center justify-center overflow-hidden rounded-[42px] px-4 py-8 lg:min-h-[720px] lg:px-8">
+          <div className="relative flex min-h-[380px] items-center justify-center lg:min-h-[720px] lg:px-8">
             {isTeacherRole ? <TeacherIllustration /> : <StudentIllustration />}
           </div>
         </div>
 
-        <div className="order-1 w-full max-w-[420px] justify-self-end lg:order-2">
+        <div className="order-1 w-full max-w-[366px] justify-self-end pt-24 pb-8 lg:order-2">
           <div className="space-y-1">
-            <p className="text-[13px] font-semibold tracking-[0.24em] text-[#A29AB9] uppercase">
+            {/* <p className="text-[13px] font-semibold tracking-[0.24em] text-[#A29AB9] uppercase">
               {isSignUpMode ? "Create Account" : "Account Login"}
-            </p>
+            </p> */}
             <h1 className="text-[40px] leading-tight font-semibold tracking-tight text-[#201A2F]">
               {isSignUpMode ? "Бүртгэл үүсгэх" : "Нэвтрэх"}
             </h1>
