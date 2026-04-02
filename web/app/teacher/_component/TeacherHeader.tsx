@@ -17,17 +17,17 @@ import {
 
 const navItems = [
   {
-    label: "Хяналтын самбар",
+    label: "Шалгалт",
     href: "/teacher/dashboard",
     icon: LayoutGrid,
   },
   {
-    label: "Аналитик",
+    label: "Анализ",
     href: "/teacher/analytics",
     icon: BarChart3,
   },
   {
-    label: "Шалгалтууд",
+    label: "Материал",
     href: "/teacher/exams",
     icon: FileText,
   },
@@ -104,8 +104,11 @@ export function TeacherHeader() {
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-[#E7E8F0] bg-white/95 backdrop-blur-sm">
-      <div className="mx-auto flex w-full max-w-[1360px] items-center justify-between px-6 py-5 lg:px-8">
-        <Link href="/teacher/dashboard" className="flex items-center gap-2.5">
+      <div className="mx-auto flex w-full max-w-[1128px] items-center justify-between  py-5 ">
+        <Link
+          href="/teacher/dashboard"
+          className="flex items-center gap-3 h-8.5 w-39"
+        >
           <Image
             src="/logo.png"
             alt="PineQuest logo"
@@ -113,16 +116,14 @@ export function TeacherHeader() {
             height={34}
             className="h-10 w-11 object-contain"
           />
-          <div className="flex flex-col leading-none text-black">
-            <span className="text-[16px] font-medium tracking-widest uppercase">
-              Learning
-            </span>
-            <span className="text-[17px] tracking-tight">MS</span>
+          <div className="flex flex-col w-17.5  h-7.5 leading-none text-black">
+            <span className="text-[16px] font-semibold">Learning</span>
+            <span className="text-[16px] font-semibold">MS</span>
           </div>
         </Link>
 
-        <div className="flex items-center gap-4 lg:gap-6">
-          <nav className="flex items-center gap-8 lg:gap-10">
+        <div className="flex items-center gap-2.25">
+          <nav className=" w-150 h-12 flex items-center gap-8 lg:gap-10">
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = isNavItemActive(pathname, item.href);
@@ -131,7 +132,7 @@ export function TeacherHeader() {
                 <Link
                   key={item.label}
                   href={item.href}
-                  className={`flex items-center gap-2.5 text-[15px] font-medium transition ${
+                  className={`flex items-center justify-center w-36 h-12 gap-2.5 text-[16px] font-medium ${
                     isActive
                       ? "text-[#8B6FF7]"
                       : "text-[#5B5563] hover:text-[#8B6FF7]"
@@ -147,14 +148,14 @@ export function TeacherHeader() {
 
         <div
           ref={profileMenuRef}
-          className="relative border-l border-[#E7E8F0] pl-5"
+          className="relative border-l border-[#E7E8F0] pl-2"
         >
           <button
             type="button"
             onClick={() => setIsProfileMenuOpen((open) => !open)}
             aria-label="Open profile menu"
             aria-expanded={isProfileMenuOpen}
-            className="flex items-center gap-3 text-left transition hover:opacity-90"
+            className="flex cursor-pointer items-center gap-3 text-left transition hover:opacity-90"
           >
             <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-full border border-[#E7E8F0] bg-[#F6F2FF] text-[14px] font-bold text-white shadow-[0_4px_10px_rgba(53,31,107,0.08)]">
               {user?.imageUrl ? (

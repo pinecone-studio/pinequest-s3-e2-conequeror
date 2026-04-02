@@ -174,29 +174,27 @@ export default function TeacherDashboardPage() {
   }, [activeTab, cards]);
 
   return (
-    <section className="space-y-8">
-      <div className="border-b border-[#E4E7F0]">
-        <div className="flex flex-wrap items-end gap-8 text-[18px] font-semibold text-[#1B1A1F] lg:gap-10">
-          {dashboardTabs.map((tab) => {
-            const isActive = tab.key === activeTab;
+    <section>
+      <div className="flex pt-8 pb-7 flex-wrap items-end gap-8 text-[18px] font-semibold text-[#1B1A1F] lg:gap-10">
+        {dashboardTabs.map((tab) => {
+          const isActive = tab.key === activeTab;
 
-            return (
-              <button
-                key={tab.key}
-                type="button"
-                onClick={() => setActiveTab(tab.key)}
-                className={[
-                  "border-b-2 pb-3 transition-colors",
-                  isActive
-                    ? "border-[#9A7BFF] text-[#9A7BFF]"
-                    : "border-transparent text-[#25232A]",
-                ].join(" ")}
-              >
-                {tab.label}
-              </button>
-            );
-          })}
-        </div>
+          return (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => setActiveTab(tab.key)}
+              className={[
+                "border-b-2 pb-3 transition-colors",
+                isActive
+                  ? "border-[#9A7BFF] text-[#9A7BFF]"
+                  : "border-transparent text-[#25232A]",
+              ].join(" ")}
+            >
+              {tab.label}
+            </button>
+          );
+        })}
       </div>
 
       <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">

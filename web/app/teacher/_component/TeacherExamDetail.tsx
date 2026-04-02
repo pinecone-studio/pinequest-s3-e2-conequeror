@@ -212,7 +212,12 @@ function renderMathText(value: string) {
   }
 
   if (hasMathContent(value)) {
-    return <MathInline math={value} className="align-middle text-[1em] text-[#27242F]" />;
+    return (
+      <MathInline
+        math={value}
+        className="align-middle text-[1em] text-[#27242F]"
+      />
+    );
   }
 
   return value;
@@ -223,8 +228,9 @@ export function TeacherExamDetail({ examId }: TeacherExamDetailProps) {
   const [actionError, setActionError] = useState("");
   const [questionActionError, setQuestionActionError] = useState("");
   const [isExamDialogOpen, setIsExamDialogOpen] = useState(false);
-  const [examMeta, setExamMeta] =
-    useState<TeacherExamDetailData["teacherExamDetail"]["exam"] | null>(null);
+  const [examMeta, setExamMeta] = useState<
+    TeacherExamDetailData["teacherExamDetail"]["exam"] | null
+  >(null);
   const [editSubject, setEditSubject] = useState("");
   const [editTitle, setEditTitle] = useState("");
   const [editGrade, setEditGrade] = useState("");
@@ -368,10 +374,7 @@ export function TeacherExamDetail({ examId }: TeacherExamDetailProps) {
       router.push("/teacher/exams");
     } catch (mutationError) {
       setActionError(
-        getApolloErrorMessage(
-          mutationError,
-          "Шалгалт устгахад алдаа гарлаа.",
-        ),
+        getApolloErrorMessage(mutationError, "Шалгалт устгахад алдаа гарлаа."),
       );
     }
   };
@@ -400,10 +403,7 @@ export function TeacherExamDetail({ examId }: TeacherExamDetailProps) {
       });
     } catch (mutationError) {
       setQuestionActionError(
-        getApolloErrorMessage(
-          mutationError,
-          "Асуулт устгахад алдаа гарлаа.",
-        ),
+        getApolloErrorMessage(mutationError, "Асуулт устгахад алдаа гарлаа."),
       );
     } finally {
       setDeletingQuestionId(null);
@@ -432,7 +432,7 @@ export function TeacherExamDetail({ examId }: TeacherExamDetailProps) {
   ];
 
   return (
-    <section className="space-y-6">
+    <section>
       <Dialog open={isExamDialogOpen} onOpenChange={setIsExamDialogOpen}>
         <DialogContent
           showCloseButton={false}
@@ -512,7 +512,9 @@ export function TeacherExamDetail({ examId }: TeacherExamDetailProps) {
               <div className="relative">
                 <select
                   value={String(editDuration)}
-                  onChange={(event) => setEditDuration(Number(event.target.value))}
+                  onChange={(event) =>
+                    setEditDuration(Number(event.target.value))
+                  }
                   className={`${examDialogFieldClassName} appearance-none pr-14`}
                 >
                   {durationOptions.map((option) => (
@@ -552,7 +554,7 @@ export function TeacherExamDetail({ examId }: TeacherExamDetailProps) {
       <div>
         <Link
           href="/teacher/exams"
-          className="inline-flex items-center gap-3 text-[18px] font-medium text-[#36313F] transition hover:text-[#7E66DC]"
+          className="inline-flex items-center h-[112px] gap-3 text-[18px] font-medium text-[#36313F] transition hover:text-[#7E66DC]"
         >
           <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#F3F0FA]">
             <ChevronLeft className="h-5 w-5" />
@@ -682,10 +684,15 @@ export function TeacherExamDetail({ examId }: TeacherExamDetailProps) {
                       const isSelected = option.id === question.correctChoiceId;
 
                       return (
-                        <div key={option.id} className="flex items-center gap-3.5">
+                        <div
+                          key={option.id}
+                          className="flex items-center gap-3.5"
+                        >
                           <span
                             className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border bg-white ${
-                              isSelected ? "border-[#8F76F6]" : "border-[#BAB4C5]"
+                              isSelected
+                                ? "border-[#8F76F6]"
+                                : "border-[#BAB4C5]"
                             }`}
                           >
                             {isSelected ? (
@@ -727,7 +734,9 @@ export function TeacherExamDetail({ examId }: TeacherExamDetailProps) {
                   </Link>
                   <button
                     type="button"
-                    onClick={() => void handleDeleteQuestion(question.id, displayOrder)}
+                    onClick={() =>
+                      void handleDeleteQuestion(question.id, displayOrder)
+                    }
                     disabled={deletingQuestionId === question.id}
                     className="transition hover:text-[#DE5A52] disabled:cursor-not-allowed disabled:opacity-40"
                     aria-label={`${displayOrder}-р асуулт устгах`}

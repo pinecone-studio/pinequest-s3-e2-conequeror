@@ -84,10 +84,10 @@ export default function TeacherExamAnalysisPage() {
 
   return (
     <section className="space-y-12">
-      <div className="space-y-10">
+      <div>
         <Link
           href="/teacher/dashboard"
-          className="inline-flex items-center gap-3 text-[18px] font-medium text-[#36313F] transition hover:text-[#7E66DC]"
+          className="inline-flex items-center gap-3 text-[18px] h-[112px] font-medium text-[#36313F] transition hover:text-[#7E66DC]"
         >
           <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#F3F0FA]">
             <ChevronLeft className="h-5 w-5" />

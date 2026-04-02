@@ -207,8 +207,8 @@ export function TeacherSchoolRequests() {
   return (
     <section className="space-y-12">
       <div className="flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <h1 className="text-[38px] font-semibold tracking-tight text-[#17131F]">
+        <div className="pt-7">
+          <h1 className="text-[28px] font-medium tracking-tight text-[#17131F]">
             Ангиуд
           </h1>
           <p className="mt-1 text-[16px] font-medium text-[#787482]">
@@ -228,9 +228,9 @@ export function TeacherSchoolRequests() {
           <button
             type="button"
             onClick={() => setIsCreateDialogOpen(true)}
-            className="inline-flex h-14 items-center gap-3 rounded-[22px] bg-[#9E81F0] px-8 text-[18px] font-semibold text-white shadow-[inset_0_-5px_0_rgba(103,79,184,0.38),0_12px_22px_rgba(158,129,240,0.28)] transition hover:translate-y-[-1px] hover:opacity-95"
+            className="inline-flex w-[168px] h-[44px] justify-center items-center gap-3 rounded-[22px] bg-[#9E81F0] text-[16px] font-semibold text-white shadow-[inset_0_-5px_0_rgba(103,79,184,0.38),0_12px_22px_rgba(158,129,240,0.28)] transition hover:translate-y-[-1px] hover:opacity-95"
           >
-            <Plus className="h-6 w-6" />
+            <Plus className="h-4 w-4" />
             Анги нэмэх
           </button>
 

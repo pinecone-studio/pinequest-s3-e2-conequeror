@@ -418,9 +418,10 @@ export default function TeacherAnalyticsPage() {
   }
 
   return (
-    <section className="mx-auto max-w-[1080px] space-y-8">
+    <section className="max-w-[1128px]">
       <Link
         href="/teacher/dashboard"
+        className="inline-flex items-center gap-3 text-[18px] h-[112px] font-medium text-[#36313F] transition hover:text-[#7E66DC]"
         className="inline-flex cursor-pointer items-center gap-3 text-[18px] font-medium text-[#36313F] transition hover:text-[#7E66DC]"
       >
         <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#F3F0FA]">
